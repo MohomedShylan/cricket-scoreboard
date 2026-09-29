@@ -1,0 +1,110 @@
+/* src/page/Navigation.css */
+
+.nav-container {
+  background-color: #0f172a;
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  font-size: 24px;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+}
+
+.nav-brand-highlight {
+  color: #0ea5e9;
+}
+
+.nav-links {
+  display: flex;
+  gap: 15px;
+}
+
+.nav-item {
+  color: #cbd5e1;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.nav-item.active {
+  background-color: #0ea5e9;
+  color: #fff;
+}
+
+/* --- MOBILE RESPONSIVE STYLES --- */
+
+/* Hamburger Menu Icon */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+  z-index: 101;
+}
+
+.hamburger .bar {
+  width: 25px;
+  height: 3px;
+  background-color: #f8fafc;
+  border-radius: 3px;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Mobile Layout View */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
+  }
+
+  /* Hamburger Animation */
+  .hamburger .bar.open:nth-child(1) { transform: translateY(9px) rotate(45deg); }
+  .hamburger .bar.open:nth-child(2) { opacity: 0; }
+  .hamburger .bar.open:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
+
+  /* Dropdown Menu */
+  .nav-links {
+    position: absolute;
+    top: 100%; /* Positions directly below the nav bar */
+    left: 0;
+    width: 100%;
+    background-color: #0f172a;
+    flex-direction: column;
+    padding: 0;
+    gap: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .nav-links.open {
+    max-height: 300px; /* Expands menu */
+    padding: 10px 0 20px 0;
+  }
+
+  .nav-item {
+    text-align: center;
+    padding: 15px;
+    border-radius: 0; /* Full width mobile styling */
+  }
+}

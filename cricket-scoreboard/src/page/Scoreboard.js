@@ -5,9 +5,16 @@ import autoTable from 'jspdf-autotable';
 import './Scoreboard.css';
 
 const TEAMS = {
-  GEN_Z: 'GenZ Strikers',
-  OG: 'Original Gangsters',
+  GEN_Z: 'Ambanpola Vikings',
+  OG: 'Ambanpola Shadows',
 };
+
+// Custom Test match rules
+const TEST_OVERS = 30;
+const TEST_MAX_BALLS = TEST_OVERS * 6;
+const MAX_SIX_OVER_BOWLERS = 3;
+const SIX_OVER_LIMIT = 36;
+const OTHER_BOWLER_LIMIT = 30;
 
 // Helper functions for stats
 const formatOvers = (totalBalls) => {
@@ -60,6 +67,42 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
   const battingRoster = battingTeam === TEAMS.GEN_Z ? liveGenZRoster : liveOgRoster;
   const bowlingRoster = battingTeam === TEAMS.GEN_Z ? liveOgRoster : liveGenZRoster;
   const allPlayersData = [...liveGenZRoster, ...liveOgRoster];
+
+  // The first three bowlers to deliver a 31st legal ball
+  // claim one of the three six-over slots.
+  // Derived from saved stats so undo/reset work automatically.
+  const sixOverBowlers = Object.entries(bowlerStats)
+    .filter(([, stats]) => Number(stats?.balls || 0) > OTHER_BOWLER_LIMIT)
+    .map(([name]) => name);
+
+  const bowlerBallLimit = (name) =>
+    sixOverBowlers.includes(name) ||
+    sixOverBowlers.length < MAX_SIX_OVER_BOWLERS
+      ? SIX_OVER_LIMIT
+      : OTHER_BOWLER_LIMIT;
+
+  const canUseBowler = (name) =>
+    Boolean(name) &&
+    Number(bowlerStats[name]?.balls || 0) < bowlerBallLimit(name);
+
+  const canScoreDelivery = () => {
+    if (balls >= TEST_MAX_BALLS) {
+      alert('30 overs completed. End the innings before scoring again.');
+      return false;
+    }
+
+    if (wickets >= 12) {
+      alert('All 12 wickets have fallen. End the innings.');
+      return false;
+    }
+
+    if (bowler && !canUseBowler(bowler)) {
+      alert(`${bowler} has reached the permitted ${bowlerBallLimit(bowler) / 6}-over limit. Select another bowler.`);
+      return false;
+    }
+
+    return true;
+  };
 
   const handleAddPlayer = () => {
     if (!newPlayerName.trim()) return alert("Please enter a valid player name!");
@@ -191,6 +234,7 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
   };
 
   const addRuns = (runsToAdd) => {
+    if (!canScoreDelivery()) return;
     if (!striker || !bowler) return alert("Please select a Striker and a Bowler first!");
     saveHistory();
     setRuns(runs + runsToAdd);
@@ -208,10 +252,11 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
 
     if (isEndOfOver) { setBowler(''); shouldSwap = !shouldSwap; }
     if (shouldSwap) { setStriker(nonStriker); setNonStriker(striker); }
-    if (newBalls >= 35 * 6) setTimeout(() => alert("End of Innings (35 Overs Completed)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500);
+    if (newBalls >= TEST_MAX_BALLS) setTimeout(() => alert("End of Innings (30 Overs Completed)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500);
   };
 
   const addWide = (extraRuns) => {
+    if (!canScoreDelivery()) return;
     if (!bowler) return alert("Please select a Bowler first!");
     saveHistory();
     setRuns(runs + 1 + extraRuns); setExtras(extras + 1 + extraRuns); 
@@ -224,6 +269,7 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
   };
 
   const addNoBall = (batterRuns) => {
+    if (!canScoreDelivery()) return;
     if (!striker || !bowler) return alert("Please select a Striker and a Bowler first!");
     saveHistory();
     setRuns(runs + 1 + batterRuns); setExtras(extras + 1); 
@@ -237,6 +283,7 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
   };
 
   const addRunOut = (completedRuns) => {
+    if (!canScoreDelivery()) return;
     if (!striker || !bowler || !nonStriker) return alert("Please select Striker, Non-Striker, and Bowler first!");
     const isStrikerOut = window.confirm(`Who was run out?\n\nClick 'OK' if ${striker} (Striker) is out.\nClick 'Cancel' if ${nonStriker} (Non-Striker) is out.`);
     saveHistory();
@@ -264,11 +311,12 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
       else { if (isStrikerOut) setStriker(''); else setNonStriker(''); }
       
       if (wickets + 1 === 12) { setTimeout(() => alert("All Out (12 Wickets)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500); } 
-      else if (newBalls >= 35 * 6) { setTimeout(() => alert("End of Innings (35 Overs Completed)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500); }
+      else if (newBalls >= TEST_MAX_BALLS) { setTimeout(() => alert("End of Innings (30 Overs Completed)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500); }
     }
   };
 
   const addWicket = () => {
+    if (!canScoreDelivery()) return;
     if (!striker || !bowler) return alert("Please select a Striker and a Bowler first!");
     saveHistory();
     let newDetails = isOverComplete ? [] : [...currentOverDetails];
@@ -287,7 +335,7 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
       if (isEndOfOver) { setBowler(''); setStriker(nonStriker); setNonStriker(''); } else { setStriker(''); }
       
       if (wickets + 1 === 12) { setTimeout(() => alert("All Out (12 Wickets)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500); } 
-      else if (newBalls >= 35 * 6) { setTimeout(() => alert("End of Innings (35 Overs Completed)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500); }
+      else if (newBalls >= TEST_MAX_BALLS) { setTimeout(() => alert("End of Innings (30 Overs Completed)! Please download your PDF Summary and manually click 'Declare / End Innings'."), 500); }
     }
   };
 
@@ -367,10 +415,27 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
                     <select value={bowler} onChange={(e) => setBowler(e.target.value)} className="input-field bowler">
                       <option value="">-- Select Bowler --</option>
                       {bowlingRoster.map(p => {
-                        const maxReached = (bowlerStats[p.name]?.balls || 0) >= 42; 
-                        return <option key={p.name} value={p.name} disabled={maxReached}>{p.name} {maxReached ? '(Max 7 Overs)' : ''}</option>
+                        const used = Number(bowlerStats[p.name]?.balls || 0);
+                        const limit = bowlerBallLimit(p.name);
+                        const maxReached = !canUseBowler(p.name);
+
+                        return (
+                          <option
+                            key={p.name}
+                            value={p.name}
+                            disabled={maxReached}
+                          >
+                            {p.name} ({formatOvers(used)} / {formatOvers(limit)})
+                            {maxReached ? ' - Limit Reached' : ''}
+                          </option>
+                        );
                       })}
                     </select>
+
+                    <p className="bowler-limit-info">
+                      Six-over bowlers: {sixOverBowlers.length} / 3
+                      {' '}· Other bowlers: maximum 5 overs
+                    </p>
                   </div>
                 </div>
               </div>
@@ -417,7 +482,7 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
               {runs} <span className="digital-wickets">/ {wickets}</span>
             </div>
             <div className="digital-overs">
-              Overs: <span>{formatOvers(balls)}</span> <span className="target-text">(Target: 35)</span>
+              Overs: <span>{formatOvers(balls)}</span> <span className="target-text">/ {TEST_OVERS} overs</span>
             </div>
 
             <div className="live-players-row">

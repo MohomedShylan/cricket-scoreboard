@@ -14,7 +14,7 @@ import './PublicViewer.css';
 import './Scoreboard.css';
 
 const FORMAT_OVERS = {
-  Test: 35,
+  Test: 30,
   ODI: 50,
   T20: 20,
   T10: 10,
@@ -22,8 +22,8 @@ const FORMAT_OVERS = {
 };
 
 const TEST_TEAMS = [
-  'GenZ Strikers',
-  'Original Gangsters'
+  'Ambanpola Vikings',
+  'Ambanpola Shadows'
 ];
 
 const oversText = balls => {

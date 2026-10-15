@@ -2,7 +2,7 @@
  // Ambanpola Shadows - 12 Players
 
 export const OG_PLAYERS = [
-  { id: 1, name: 'Dhanaja', image: '' },
+  { id: 1, name: 'Dhanaja',image: '/images/danaja.png' },
   { id: 2, name: 'Tharindu', image: '' },
   { id: 3, name: 'Shylan', image: '' },
   { id: 4, name: 'Naveen', image: '' },

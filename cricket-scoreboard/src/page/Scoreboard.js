@@ -126,13 +126,44 @@ export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initia
     }
   };
 
-  const getAvatarUrl = (name, isBowler = false) => {
-    const playerObj = allPlayersData.find(p => p.name === name);
-    if (playerObj && playerObj.image) return playerObj.image; 
-    const bgColor = isBowler ? 'fecaca' : 'cbd5e1';
-    const textColor = isBowler ? '991b1b' : '1e293b';
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || '?')}&background=${bgColor}&color=${textColor}&rounded=true&bold=true`;
-  };
+
+const getAvatarUrl = (name, isBowler = false) => {
+  const normalize = value =>
+    String(value || '').trim().toLowerCase();
+
+  // Latest official player data from genZData.js / ogData.js
+  const officialPlayers = [
+    ...(genZRoster || []),
+    ...(ogRoster || [])
+  ];
+
+  // Look for the latest player image first
+  const officialPlayer = officialPlayers.find(
+    p => normalize(p.name) === normalize(name)
+  );
+
+  // Fall back to the current Supabase-saved roster
+  const savedPlayer = allPlayersData.find(
+    p => normalize(p.name) === normalize(name)
+  );
+
+  const image =
+    officialPlayer?.image?.trim() ||
+    savedPlayer?.image?.trim();
+
+  if (image) {
+    return image;
+  }
+
+  // Fallback avatar for players without photos
+  const bgColor = isBowler ? 'fecaca' : 'cbd5e1';
+  const textColor = isBowler ? '991b1b' : '1e293b';
+
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(
+    name || '?'
+  )}&background=${bgColor}&color=${textColor}&rounded=true&bold=true`;
+};
+
 
   const buildPDF = (doc, title, inningsNum, bTeam, teamRuns, teamWickets, teamOvers, teamExtras, batStats, bowlStats) => {
     const allBatters = Object.entries(batStats);

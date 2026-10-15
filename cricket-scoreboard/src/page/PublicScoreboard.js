@@ -11,6 +11,7 @@ import Navigation from './Navigation';
 import { GENZ_PLAYERS } from '../genZData';
 import { OG_PLAYERS } from '../ogData';
 import './PublicViewer.css';
+import './Scoreboard.css';
 
 const FORMAT_OVERS = {
   Test: 35,
@@ -225,6 +226,28 @@ function ScoreTable({ inning, images }) {
     </div>
   );
 }
+
+const getViewerBallClass = (event) => {
+  const value = String(event);
+
+  if (value === 'W' || value.startsWith('W+')) {
+    return 'ball-event ball-w';
+  }
+
+  if (value === '4' || value === '6') {
+    return 'ball-event ball-boundary';
+  }
+
+  if (value.includes('wd') || value.includes('nb')) {
+    return 'ball-event ball-extra';
+  }
+
+  if (value === '0') {
+    return 'ball-event ball-dot';
+  }
+
+  return 'ball-event';
+};
 
 function LiveMatch({ format }) {
   const [match, setMatch] = useState(null);
@@ -491,168 +514,173 @@ function LiveMatch({ format }) {
           </p>
         )}
 
-        {/* MAIN MATCH SCOREBOARD */}
-        <section className="fx-match-card" aria-label="Match overview">
-          <div className="fx-match-top">
-            <span className={`fx-status ${
-              matchFinished ? 'finished' : ''
-            }`}>
-              <span className="fx-status-dot" />
-              {matchFinished
-                ? 'MATCH COMPLETE'
-                : 'LIVE UPDATES'}
+       
+{/* LIVE SCOREBOARD - REFERENCE DESIGN */}
+<section
+  className="digital-board fx-viewer-board"
+  aria-label="Live cricket scoreboard"
+>
+  {/* Innings Number */}
+  <div className="digital-innings">
+    Innings {s.currentInnings || 1} / {maxInnings}
+  </div>
+
+  {/* Batting Team */}
+  <h2 className="digital-title">
+    {s.battingTeam || 'Team'} Batting
+  </h2>
+
+  {/* Main Score */}
+  <div className="digital-score" aria-live="polite">
+    {s.runs ?? 0}
+    <span className="digital-wickets">
+      {' '}/ {s.wickets ?? 0}
+    </span>
+  </div>
+
+  {/* Overs and Target */}
+  <div className="digital-overs">
+    Overs:{' '}
+    <span>{oversText(s.balls)}</span>
+
+    <span className="target-text">
+      {' '}
+      {isChase && target !== null
+        ? `(Target: ${target})`
+        : `(Limit: ${FORMAT_OVERS[format]} overs)`}
+    </span>
+  </div>
+
+  {/* BATTERS AND BOWLER */}
+  <div className="live-players-row">
+
+    {/* Batters */}
+    <div className="player-box batters">
+
+      {/* Striker */}
+      <div className="live-batter-row">
+        <div className="live-player-info">
+          <Avatar
+            name={s.striker || '?'}
+            images={images}
+          />
+
+          <div className="live-player-name">
+            {s.striker || 'Not Selected'}
+            <span className="striker-star">
+              {' '}*
             </span>
-
-            <span>
-              Innings {Math.min(
-                Number(s.currentInnings || 1),
-                maxInnings
-              )} of {maxInnings}
-            </span>
           </div>
+        </div>
 
-          <div className="fx-teams">
-            {teamNames.map((team, index) => {
-              const latest = lastScoreFor(team);
+        <div className="live-score-large">
+          {(s.batterStats || {})[s.striker]?.runs ?? 0}
+          {' '}
+          <span className="live-balls">
+            ({(s.batterStats || {})[s.striker]?.balls ?? 0})
+          </span>
+        </div>
+      </div>
 
-              return (
-                <div
-                  className={`fx-team ${
-                    s.battingTeam === team && !matchFinished
-                      ? 'batting'
-                      : ''
-                  }`}
-                  key={`${index}-${team}`}
-                >
-                  <div className="fx-team-icon">
-                    {initials(team)}
-                  </div>
+      {/* Non-Striker */}
+      <div className="live-batter-ns">
+        <div className="live-player-info">
+          <Avatar
+            name={s.nonStriker || '?'}
+            images={images}
+          />
 
-                  <div className="fx-team-details">
-                    <span>{team}</span>
-                    <small>
-                      {latest
-                        ? `Innings ${latest.innings}`
-                        : 'Yet to bat'}
-                    </small>
-                  </div>
-
-                  <strong>
-                    {latest
-                      ? `${latest.runs}/${latest.wickets}`
-                      : '—'}
-                  </strong>
-
-                  <span className="fx-team-overs">
-                    {latest
-                      ? (latest.overs ||
-                          oversText(latest.balls)) + ' ov'
-                      : ''}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="live-player-name-ns">
+            {s.nonStriker || 'Not Selected'}
           </div>
+        </div>
 
-          <div className="fx-main-score">
-            <div className="fx-score-left">
-              <div className="fx-overline">
-                {s.battingTeam} ·{' '}
-                {matchFinished
-                  ? 'Final innings'
-                  : 'Currently batting'}
-              </div>
+        <div className="live-score-medium">
+          {(s.batterStats || {})[s.nonStriker]?.runs ?? 0}
+          {' '}
+          <span className="live-balls-ns">
+            ({(s.batterStats || {})[s.nonStriker]?.balls ?? 0})
+          </span>
+        </div>
+      </div>
+    </div>
 
-              <div className="fx-score-number" aria-live="polite">
-                {s.runs ?? 0}
-                <span>/{s.wickets ?? 0}</span>
-              </div>
+    {/* Bowler */}
+    <div className="player-box bowler">
+      <div className="live-bowler-row">
+        <div className="live-bowler-name">
+          {s.bowler || 'Not Selected'}
+        </div>
 
-              <div className="fx-score-sub">
-                {oversText(balls)} / {FORMAT_OVERS[format]} overs
-                <span>•</span>
-                Extras {s.extras ?? 0}
-              </div>
-            </div>
+        <Avatar
+          name={s.bowler || '?'}
+          images={images}
+        />
+      </div>
 
-            <div className="fx-metrics">
-              <div>
-                <small>RUN RATE</small>
-                <strong>{rate(s.runs, balls)}</strong>
-              </div>
-
-              <div>
-                <small>FOURS</small>
-                <strong>
-                  {Object.values(s.batterStats || {}).reduce(
-                    (sum, p) => sum + Number(p.fours || 0),
-                    0
-                  )}
-                </strong>
-              </div>
-
-              <div>
-                <small>SIXES</small>
-                <strong>
-                  {Object.values(s.batterStats || {}).reduce(
-                    (sum, p) => sum + Number(p.sixes || 0),
-                    0
-                  )}
-                </strong>
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="fx-progress"
-            aria-label="Overs completed"
-          >
-            <div
-              style={{
-                width: `${
-                  Math.min(100, (balls / maxBalls) * 100)
-                }%`
-              }}
-            />
-          </div>
-
-          {result ? (
-            <div className="fx-match-note">
-              🏆 {result}
-            </div>
-          ) : isChase ? (
-            <div className="fx-chase-grid">
-              <div>
-                <small>TARGET</small>
-                <strong>{target}</strong>
-              </div>
-              <div>
-                <small>NEED</small>
-                <strong>{needed} runs</strong>
-              </div>
-              <div>
-                <small>BALLS LEFT</small>
-                <strong>{remainingBalls}</strong>
-              </div>
-              <div>
-                <small>REQUIRED RR</small>
-                <strong>
-                  {needed === 0
-                    ? '0.00'
-                    : remainingBalls
-                    ? rate(needed, remainingBalls)
-                    : '—'}
-                </strong>
-              </div>
-            </div>
-          ) : (
-            <div className="fx-match-note">
-              {format === 'Test'
-                ? 'Four-innings match'
-                : 'First innings in progress'}
-            </div>
+      <div className="live-bowler-stats">
+        Ov:{' '}
+        <strong>
+          {oversText(
+            (s.bowlerStats || {})[s.bowler]?.balls
           )}
-        </section>
+        </strong>
+
+        {' '}| R:{' '}
+        <strong>
+          {(s.bowlerStats || {})[s.bowler]?.runs ?? 0}
+        </strong>
+      </div>
+
+      <div className="live-bowler-wickets">
+        Wickets:{' '}
+        <strong>
+          {(s.bowlerStats || {})[s.bowler]?.wickets ?? 0}
+        </strong>
+      </div>
+    </div>
+  </div>
+
+  {/* THIS OVER */}
+  <div className="this-over-container">
+    <span className="this-over-label">
+      THIS OVER:
+    </span>
+
+    <div className="this-over-balls">
+      {(s.currentOverDetails || []).length === 0 ? (
+        <span className="this-over-empty">
+          ...
+        </span>
+      ) : (
+        s.currentOverDetails.map((event, index) => (
+          <span
+            key={`${index}-${event}`}
+            className={getViewerBallClass(event)}
+          >
+            {event}
+          </span>
+        ))
+      )}
+    </div>
+  </div>
+
+  {/* EXTRAS */}
+  <div className="digital-extras">
+    Extras:
+    <strong className="digital-extras-val">
+      {s.extras ?? 0}
+    </strong>
+  </div>
+
+  {/* Match Result, When Available */}
+  {matchFinished && result && (
+    <div className="fx-viewer-result">
+      {result}
+    </div>
+  )}
+</section>
+
 
         {/* ACTIVE PLAYER CARDS */}
         <div className="fx-match-grid">

@@ -896,3 +896,392 @@
     flex-direction: column;
   }
 }
+
+/* =============================================
+   PUBLIC VIEWER - DIGITAL SCOREBOARD
+   Reference: Existing admin scoreboard design
+   ============================================= */
+
+.fx-viewer-board.digital-board {
+  width: 100%;
+  min-height: 620px;
+  flex: none;
+  margin-bottom: 28px;
+  padding: 32px 36px 45px;
+  box-sizing: border-box;
+  background: #0f172a;
+  color: #f8fafc;
+  border-radius: 13px;
+  position: relative;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+/* Innings display */
+.fx-viewer-board .digital-innings {
+  position: absolute;
+  top: 20px;
+  right: 24px;
+  color: #94a3b8;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+/* Batting team heading */
+.fx-viewer-board .digital-title {
+  text-align: center;
+  color: #cbd5e1;
+  font-size: 24px;
+  font-weight: 650;
+  margin: 8px 0 26px;
+  padding-top: 6px;
+}
+
+/* Main runs / wickets */
+.fx-viewer-board .digital-score {
+  text-align: center;
+  font-family: monospace;
+  font-size: clamp(65px, 11vw, 100px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -2px;
+  margin: 24px 0 25px;
+  color: #f8fafc;
+  font-variant-numeric: tabular-nums;
+}
+
+.fx-viewer-board .digital-wickets {
+  color: #ef4444;
+}
+
+/* Overs and target */
+.fx-viewer-board .digital-overs {
+  text-align: center;
+  font-size: 20px;
+  color: #94a3b8;
+  margin-bottom: 34px;
+}
+
+.fx-viewer-board .digital-overs > span:first-child {
+  color: white;
+  font-weight: 600;
+}
+
+.fx-viewer-board .target-text {
+  color: #f8fafc;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+/* Player section */
+.fx-viewer-board .live-players-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  margin-top: 30px;
+}
+
+.fx-viewer-board .player-box {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 18px;
+  min-width: 0;
+}
+
+.fx-viewer-board .player-box.batters {
+  flex: 1.5;
+}
+
+.fx-viewer-board .player-box.bowler {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Batter rows */
+.fx-viewer-board .live-batter-row,
+.fx-viewer-board .live-batter-ns {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.fx-viewer-board .live-batter-row {
+  margin-bottom: 18px;
+}
+
+.fx-viewer-board .live-batter-ns {
+  opacity: .8;
+}
+
+.fx-viewer-board .live-player-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.fx-viewer-board .live-player-name {
+  font-size: 17px;
+  font-weight: 750;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+
+.fx-viewer-board .live-player-name-ns {
+  font-size: 15px;
+  color: #cbd5e1;
+  overflow-wrap: anywhere;
+}
+
+.fx-viewer-board .striker-star {
+  color: #fbbf24;
+}
+
+.fx-viewer-board .live-score-large {
+  white-space: nowrap;
+  font-weight: 800;
+  font-size: 20px;
+  color: white;
+}
+
+.fx-viewer-board .live-score-medium {
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 750;
+  color: white;
+}
+
+.fx-viewer-board .live-balls,
+.fx-viewer-board .live-balls-ns {
+  font-size: 13px;
+  color: #cbd5e1;
+  font-weight: 400;
+}
+
+/* Circular player images */
+.fx-viewer-board .fx-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: #cbd5e1;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.fx-viewer-board .fx-avatar-text {
+  display: grid;
+  place-items: center;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.fx-viewer-board .live-batter-ns .fx-avatar {
+  width: 38px;
+  height: 38px;
+}
+
+/* Bowler card */
+.fx-viewer-board .live-bowler-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-direction: row;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fx-viewer-board .live-bowler-row .fx-avatar {
+  width: 48px;
+  height: 48px;
+  background: #fecaca;
+  border-color: #fecaca;
+}
+
+.fx-viewer-board .live-bowler-name {
+  font-size: 17px;
+  font-weight: 750;
+  text-align: right;
+  color: white;
+  overflow-wrap: anywhere;
+}
+
+.fx-viewer-board .live-bowler-stats {
+  text-align: right;
+  color: #cbd5e1;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.fx-viewer-board .live-bowler-wickets {
+  text-align: right;
+  color: #ef4444;
+  font-size: 14px;
+}
+
+/* Ball-by-ball pills */
+.fx-viewer-board .this-over-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 32px;
+}
+
+.fx-viewer-board .this-over-label {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 650;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.fx-viewer-board .this-over-balls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.fx-viewer-board .ball-event {
+  display: grid;
+  place-items: center;
+  min-width: 48px;
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 20px;
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.fx-viewer-board .ball-dot {
+  background: #94a3b8;
+  border-color: #64748b;
+  color: white;
+}
+
+.fx-viewer-board .ball-w {
+  background: #ef4444;
+  border-color: #dc2626;
+  color: white;
+}
+
+.fx-viewer-board .ball-boundary {
+  background: #10b981;
+  border-color: #059669;
+  color: white;
+}
+
+.fx-viewer-board .ball-extra {
+  background: #f59e0b;
+  border-color: #d97706;
+  color: white;
+}
+
+/* Extras */
+.fx-viewer-board .digital-extras {
+  text-align: center;
+  margin-top: 30px;
+  font-size: 16px;
+  color: #94a3b8;
+}
+
+.fx-viewer-board .digital-extras-val {
+  margin-left: 10px;
+  font-size: 20px;
+  font-weight: 800;
+  color: white;
+}
+
+/* Match result */
+.fx-viewer-result {
+  text-align: center;
+  margin-top: 22px;
+  color: #6ee7b7;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+/* Mobile responsive */
+@media (max-width: 700px) {
+  .fx-viewer-board.digital-board {
+    padding: 24px 15px 30px;
+    min-height: 0;
+  }
+
+  .fx-viewer-board .digital-innings {
+    position: static;
+    text-align: right;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+
+  .fx-viewer-board .digital-title {
+    font-size: 20px;
+    margin: 6px 0 20px;
+    padding: 0;
+  }
+
+  .fx-viewer-board .digital-score {
+    font-size: clamp(54px, 12vw, 75px);
+    margin: 20px 0;
+  }
+
+  .fx-viewer-board .digital-overs {
+    font-size: 16px;
+    margin-bottom: 25px;
+  }
+
+  .fx-viewer-board .target-text {
+    font-size: 12px;
+  }
+
+  .fx-viewer-board .live-players-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .fx-viewer-board .player-box {
+    padding: 14px;
+  }
+
+  .fx-viewer-board .live-player-name,
+  .fx-viewer-board .live-bowler-name {
+    font-size: 14px;
+  }
+
+  .fx-viewer-board .live-bowler-row {
+    justify-content: space-between;
+    flex-direction: row;
+  }
+
+  .fx-viewer-board .live-bowler-stats,
+  .fx-viewer-board .live-bowler-wickets {
+    text-align: left;
+  }
+
+  .fx-viewer-board .this-over-container {
+    gap: 12px;
+    margin-top: 26px;
+  }
+
+  .fx-viewer-board .this-over-balls {
+    gap: 7px;
+  }
+
+  .fx-viewer-board .ball-event {
+    min-width: 39px;
+    height: 34px;
+    font-size: 12px;
+  }
+
+  .fx-viewer-board .digital-extras {
+    margin-top: 28px;
+  }
+}

@@ -1,25 +1,18 @@
 
-import React, { useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import Navigation from './Navigation';
 import { GENZ_PLAYERS } from '../genZData';
 import { OG_PLAYERS } from '../ogData';
-import './Scoreboard.css';
-import './LiveScoreboard.css';
+import './PublicViewer.css';
 
-const formatOvers = balls =>
-  `${Math.floor((balls || 0) / 6)}.${(balls || 0) % 6}`;
-
-const percentage = (numerator, denominator) =>
-  denominator
-    ? ((numerator / denominator) * 100).toFixed(2)
-    : '0.00';
-
-const economy = (runs, balls) =>
-  balls ? ((runs / balls) * 6).toFixed(2) : '0.00';
-
-const limits = {
+const FORMAT_OVERS = {
   Test: 35,
   ODI: 50,
   T20: 20,
@@ -27,55 +20,258 @@ const limits = {
   '5 Over': 5
 };
 
-function LiveScore({ format }) {
+const TEST_TEAMS = [
+  'GenZ Strikers',
+  'Original Gangsters'
+];
+
+const oversText = balls => {
+  const count = Number(balls) || 0;
+  return `${Math.floor(count / 6)}.${count % 6}`;
+};
+
+const rate = (runs, balls) =>
+  Number(balls) > 0
+    ? ((Number(runs || 0) * 6) / Number(balls)).toFixed(2)
+    : '0.00';
+
+const strikeRate = (runs, balls) =>
+  Number(balls) > 0
+    ? ((Number(runs || 0) * 100) / Number(balls)).toFixed(2)
+    : '0.00';
+
+const initials = name =>
+  (name || '?')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(p => p[0])
+    .join('')
+    .toUpperCase();
+
+function Avatar({ name, images }) {
+  const image = images[name?.trim()];
+
+  return image ? (
+    <img
+      className="fx-avatar"
+      src={image}
+      alt=""
+      loading="lazy"
+    />
+  ) : (
+    <span className="fx-avatar fx-avatar-text" aria-hidden="true">
+      {initials(name)}
+    </span>
+  );
+}
+
+function Ball({ value }) {
+  const label = String(value);
+
+  const wicket = label.startsWith('W');
+  const boundary = label === '4' || label === '6';
+  const extra = label.includes('wd') || label.includes('nb');
+
+  const type = wicket
+    ? 'wicket'
+    : boundary
+    ? 'boundary'
+    : extra
+    ? 'extra'
+    : label === '0'
+    ? 'dot'
+    : '';
+
+  return (
+    <span
+      className={`fx-ball ${type}`}
+      title={`Delivery: ${label}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ScoreTable({ inning, images }) {
+  const batting = Object.entries(inning.batterStats || {});
+  const bowling = Object.entries(inning.bowlerStats || {});
+
+  return (
+    <div className="fx-tables">
+      <section className="fx-card fx-table-card">
+        <div className="fx-section-heading">
+          <div>
+            <span className="fx-eyebrow">BATTING</span>
+            <h3>Batting scorecard</h3>
+          </div>
+          <span className="fx-soft-tag">
+            {batting.length} batters
+          </span>
+        </div>
+
+        <div className="fx-table-scroll">
+          <table className="fx-table">
+            <thead>
+              <tr>
+                <th>BATTER</th>
+                <th>R</th>
+                <th>B</th>
+                <th>4s</th>
+                <th>6s</th>
+                <th>SR</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {batting.map(([name, stats]) => (
+                <tr key={name}>
+                  <td>
+                    <div className="fx-person">
+                      <Avatar name={name} images={images} />
+                      <div>
+                        <strong>{name}</strong>
+                        <small>
+                          {stats.isOut
+                            ? stats.outBowler === 'Run Out'
+                              ? 'Run out'
+                              : `b ${stats.outBowler || '—'}`
+                            : 'Not out'}
+                        </small>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="fx-emphasis">{stats.runs ?? 0}</td>
+                  <td>{stats.balls ?? 0}</td>
+                  <td>{stats.fours ?? 0}</td>
+                  <td>{stats.sixes ?? 0}</td>
+                  <td>{strikeRate(stats.runs, stats.balls)}</td>
+                </tr>
+              ))}
+
+              {!batting.length && (
+                <tr>
+                  <td className="fx-empty-cell" colSpan="6">
+                    No batting statistics yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="fx-table-footer">
+          <span>Extras</span>
+          <strong>{inning.extras ?? 0}</strong>
+          <span>Total</span>
+          <strong>
+            {inning.runs ?? 0}/{inning.wickets ?? 0}
+          </strong>
+        </div>
+      </section>
+
+      <section className="fx-card fx-table-card">
+        <div className="fx-section-heading">
+          <div>
+            <span className="fx-eyebrow">BOWLING</span>
+            <h3>Bowling figures</h3>
+          </div>
+          <span className="fx-soft-tag">
+            {bowling.length} bowlers
+          </span>
+        </div>
+
+        <div className="fx-table-scroll">
+          <table className="fx-table">
+            <thead>
+              <tr>
+                <th>BOWLER</th>
+                <th>O</th>
+                <th>R</th>
+                <th>W</th>
+                <th>ECON</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {bowling.map(([name, stats]) => (
+                <tr key={name}>
+                  <td>
+                    <div className="fx-person">
+                      <Avatar name={name} images={images} />
+                      <strong>{name}</strong>
+                    </div>
+                  </td>
+                  <td>{oversText(stats.balls)}</td>
+                  <td>{stats.runs ?? 0}</td>
+                  <td className="fx-emphasis">
+                    {stats.wickets ?? 0}
+                  </td>
+                  <td>{rate(stats.runs, stats.balls)}</td>
+                </tr>
+              ))}
+
+              {!bowling.length && (
+                <tr>
+                  <td className="fx-empty-cell" colSpan="5">
+                    No bowling statistics yet
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function LiveMatch({ format }) {
   const [match, setMatch] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
+  const [selectedInning, setSelectedInning] =
+    useState('current');
+
+  const acceptMatch = useCallback(row => {
+    if (!row || row.format !== format) return;
+
+    setMatch(previous =>
+      !previous ||
+      Date.parse(row.updated_at) >=
+        Date.parse(previous.updated_at)
+        ? row
+        : previous
+    );
+  }, [format]);
+
+  const refresh = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true);
+
+    const { data, error: queryError } = await supabase
+      .from('scoreboard_matches')
+      .select('format, state, updated_at')
+      .eq('format', format)
+      .maybeSingle();
+
+    if (queryError) {
+      setError(queryError.message);
+    } else {
+      setError('');
+      if (data) acceptMatch(data);
+    }
+
+    setLoading(false);
+    if (manual) setRefreshing(false);
+  }, [acceptMatch, format]);
 
   useEffect(() => {
     let active = true;
 
-    setMatch(null);
-    setLoading(true);
-    setError('');
-
-    function acceptRow(row) {
-      if (!active || !row || row.format !== format) return;
-
-      setMatch(previous => {
-        if (
-          !previous ||
-          Date.parse(row.updated_at) >=
-          Date.parse(previous.updated_at)
-        ) {
-          return row;
-        }
-
-        return previous;
-      });
-    }
-
-    async function refresh() {
-      const { data, error: fetchError } = await supabase
-        .from('scoreboard_matches')
-        .select('format, state, updated_at')
-        .eq('format', format)
-        .maybeSingle();
-
-      if (!active) return;
-
-      if (fetchError) {
-        setError(fetchError.message);
-      } else {
-        setError('');
-        if (data) acceptRow(data);
-      }
-
-      setLoading(false);
-    }
-
     const channel = supabase
-      .channel(`public-score-${format}`)
+      .channel(`fx-public-${format}`)
       .on(
         'postgres_changes',
         {
@@ -84,343 +280,613 @@ function LiveScore({ format }) {
           table: 'scoreboard_matches'
         },
         payload => {
-          if (payload.new) acceptRow(payload.new);
+          if (active && payload.new) {
+            acceptMatch(payload.new);
+          }
         }
       )
-      .subscribe();
+      .subscribe(status => {
+        if (active) {
+          setConnected(status === 'SUBSCRIBED');
+        }
+      });
 
     void refresh();
 
-    // Fallback if a Realtime event is missed.
-    const polling = setInterval(
-      () => void refresh(),
-      15000
-    );
+    const polling = setInterval(() => {
+      if (active) void refresh();
+    }, 15000);
 
     return () => {
       active = false;
       clearInterval(polling);
       void supabase.removeChannel(channel);
     };
-  }, [format]);
+  }, [format, acceptMatch, refresh]);
 
-  if (loading) {
-    return <p className="score-message">Loading live scores…</p>;
-  }
+  const s = match?.state || {};
 
-  if (!match) {
+  const inningsHistory = Array.isArray(s.inningsHistory)
+    ? s.inningsHistory
+    : [];
+
+  const maxInnings = format === 'Test' ? 4 : 2;
+  const matchFinished = inningsHistory.length >= maxInnings;
+
+  const teamNames = format === 'Test'
+    ? TEST_TEAMS
+    : [s.team1Name, s.team2Name].filter(Boolean);
+
+  const teamReady = format === 'Test'
+    ? Boolean(s.battingTeam)
+    : Boolean(s.teamsLocked && teamNames.length === 2);
+
+  const balls = Number(s.balls || 0);
+  const maxBalls = FORMAT_OVERS[format] * 6;
+  const remainingBalls = Math.max(0, maxBalls - balls);
+
+  const firstInnings = inningsHistory.find(
+    item => Number(item.innings) === 1
+  );
+
+  const isChase =
+    format !== 'Test' &&
+    Number(s.currentInnings) === 2 &&
+    Boolean(firstInnings);
+
+  const target = isChase
+    ? Number(firstInnings.runs) + 1
+    : null;
+
+  const needed = target === null
+    ? null
+    : Math.max(0, target - Number(s.runs || 0));
+
+  const images = useMemo(() => {
+    const players = [
+      ...GENZ_PLAYERS,
+      ...OG_PLAYERS,
+      ...(s.liveGenZRoster || []),
+      ...(s.liveOgRoster || []),
+      ...(s.roster1 || []),
+      ...(s.roster2 || [])
+    ];
+
+    return Object.fromEntries(
+      players
+        .filter(p => p?.name && p.image)
+        .map(p => [p.name.trim(), p.image])
+    );
+  }, [
+    s.liveGenZRoster,
+    s.liveOgRoster,
+    s.roster1,
+    s.roster2
+  ]);
+
+  const current = {
+    team: s.battingTeam,
+    innings: s.currentInnings,
+    runs: s.runs || 0,
+    wickets: s.wickets || 0,
+    balls,
+    extras: s.extras || 0,
+    batterStats: s.batterStats || {},
+    bowlerStats: s.bowlerStats || {}
+  };
+
+  const scoreEntries = matchFinished
+    ? inningsHistory
+    : [...inningsHistory, current];
+
+  const lastScoreFor = team =>
+    [...scoreEntries].reverse().find(
+      item => item.team === team
+    );
+
+  const scorecard = selectedInning === 'current'
+    ? (
+        matchFinished
+          ? inningsHistory[inningsHistory.length - 1]
+          : current
+      )
+    : (
+        inningsHistory[Number(selectedInning)] || current
+      );
+
+  const result = (() => {
+    if (!matchFinished) return null;
+
+    if (format === 'Test') {
+      return 'All four innings have been recorded';
+    }
+
+    const first = inningsHistory.find(
+      item => Number(item.innings) === 1
+    );
+
+    const second = inningsHistory.find(
+      item => Number(item.innings) === 2
+    );
+
+    if (!first || !second) return 'Match completed';
+
+    if (Number(first.runs) === Number(second.runs)) {
+      return 'Scores tied';
+    }
+
+    return Number(first.runs) > Number(second.runs)
+      ? `${first.team} finished ${
+          Number(first.runs) - Number(second.runs)
+        } runs ahead`
+      : `${second.team} reached the target`;
+  })();
+
+  if (loading && !match) {
     return (
-      <p className="score-message" role="status">
-        {error || `No ${format} match has been published yet.`}
-      </p>
+      <div className="fx-notice" role="status">
+        Loading the {format} scoreboard…
+      </div>
     );
   }
 
-  const s = match.state || {};
-  const batting = s.batterStats || {};
-  const bowling = s.bowlerStats || {};
-  const innings = s.inningsHistory || [];
-
-  const allPlayers = [
-    ...(s.liveGenZRoster || GENZ_PLAYERS),
-    ...(s.liveOgRoster || OG_PLAYERS),
-    ...(s.roster1 || []),
-    ...(s.roster2 || [])
-  ];
-
-  const avatar = name => {
-    const image = allPlayers.find(p => p.name === name)?.image;
-
-    return image ||
-      `https://ui-avatars.com/api/?name=${
-        encodeURIComponent(name || 'Player')
-      }&background=cbd5e1&color=1e293b`;
-  };
-
-  const maxInnings = format === 'Test' ? 4 : 2;
-  const finished = innings.length >= maxInnings;
-  const battingTeam = s.battingTeam || '';
-
-  const team1 =
-    format === 'Test' ? 'GenZ Strikers' : s.team1Name;
-
-  const team2 =
-    format === 'Test' ? 'Original Gangsters' : s.team2Name;
-
-  const ready = format === 'Test' || s.teamsLocked;
-
-  if (!ready) {
+  if (!match || !teamReady) {
     return (
-      <p className="score-message">
-        The {format} match is being set up.
-        Check back shortly.
-      </p>
+      <div className="fx-notice">
+        <h2>{format} scoreboard</h2>
+        <p>
+          {error ||
+            'The match has not been published by an admin yet.'}
+        </p>
+        <button
+          className="fx-button"
+          onClick={() => void refresh(true)}
+          disabled={refreshing}
+        >
+          {refreshing ? 'Checking…' : 'Check again'}
+        </button>
+      </div>
     );
   }
 
   return (
-    <main className="scoreboard-container score-viewer">
-      <div className="scoreboard-wrapper">
+    <main className="fx-page">
+      <div className="fx-container">
 
-        <div className="score-viewer-top">
+        {/* PAGE HEADER */}
+        <header className="fx-topbar">
           <div>
-            <span className="score-live-label">
-              {finished
-                ? 'MATCH COMPLETE'
-                : '● LIVE SCOREBOARD'}
+            <div className="fx-eyebrow">
+              AMBANPOLA FOXELEVEN · {format.toUpperCase()}
+            </div>
+            <h1>Match centre</h1>
+            <p>Live scores and player performance</p>
+          </div>
+
+          <div className="fx-top-actions">
+            <span className={`fx-connection ${
+              connected ? 'online' : 'polling'
+            }`}>
+              <span className="fx-connection-dot" />
+              {connected
+                ? 'Realtime connected'
+                : 'Refreshing periodically'}
             </span>
 
-            <h1>{team1} vs {team2}</h1>
-
-            <p>
-              {format} • Innings {s.currentInnings || 1}
-              {' '}of {maxInnings}
-            </p>
+            <button
+              type="button"
+              className="fx-button fx-refresh"
+              onClick={() => void refresh(true)}
+              disabled={refreshing}
+            >
+              {refreshing ? 'Refreshing…' : '↻ Refresh'}
+            </button>
           </div>
-
-          <div className="score-updated">
-            Last updated{' '}
-            {new Date(match.updated_at).toLocaleTimeString()}
-          </div>
-        </div>
+        </header>
 
         {error && (
-          <p role="alert" className="score-error">
-            Connection issue: {error}
+          <p className="fx-alert" role="alert">
+            Unable to check for new scores: {error}.
+            Last received scores are displayed.
           </p>
         )}
 
-        <div className="digital-board score-public-hero">
-          <h2 className="digital-title">
-            {battingTeam} Batting
-          </h2>
+        {/* MAIN MATCH SCOREBOARD */}
+        <section className="fx-match-card" aria-label="Match overview">
+          <div className="fx-match-top">
+            <span className={`fx-status ${
+              matchFinished ? 'finished' : ''
+            }`}>
+              <span className="fx-status-dot" />
+              {matchFinished
+                ? 'MATCH COMPLETE'
+                : 'LIVE UPDATES'}
+            </span>
 
-          <div className="digital-score">
-            {s.runs || 0}{' '}
-            <span className="digital-wickets">
-              / {s.wickets || 0}
+            <span>
+              Innings {Math.min(
+                Number(s.currentInnings || 1),
+                maxInnings
+              )} of {maxInnings}
             </span>
           </div>
 
-          <div className="digital-overs">
-            Overs{' '}
-            <span>{formatOvers(s.balls)}</span>
-            {' '}/ {limits[format]}
+          <div className="fx-teams">
+            {teamNames.map((team, index) => {
+              const latest = lastScoreFor(team);
 
-            <span className="score-extras">
-              Extras: {s.extras || 0}
-            </span>
-          </div>
+              return (
+                <div
+                  className={`fx-team ${
+                    s.battingTeam === team && !matchFinished
+                      ? 'batting'
+                      : ''
+                  }`}
+                  key={`${index}-${team}`}
+                >
+                  <div className="fx-team-icon">
+                    {initials(team)}
+                  </div>
 
-          <div className="score-active-players">
-            <div>
-              <strong>
-                {s.striker || 'Striker not selected'} *
-              </strong>
+                  <div className="fx-team-details">
+                    <span>{team}</span>
+                    <small>
+                      {latest
+                        ? `Innings ${latest.innings}`
+                        : 'Yet to bat'}
+                    </small>
+                  </div>
 
-              <span>
-                {batting[s.striker]?.runs || 0}
-                {' '}({batting[s.striker]?.balls || 0})
-              </span>
-            </div>
+                  <strong>
+                    {latest
+                      ? `${latest.runs}/${latest.wickets}`
+                      : '—'}
+                  </strong>
 
-            <div>
-              <strong>
-                {s.nonStriker || 'Non-striker not selected'}
-              </strong>
-
-              <span>
-                {batting[s.nonStriker]?.runs || 0}
-                {' '}({batting[s.nonStriker]?.balls || 0})
-              </span>
-            </div>
-
-            <div>
-              <strong>
-                {s.bowler || 'Bowler not selected'}
-              </strong>
-
-              <span>
-                {bowling[s.bowler]?.wickets || 0}
-                {' '}/ {bowling[s.bowler]?.runs || 0}
-                {' '}({formatOvers(bowling[s.bowler]?.balls)})
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 className="card-title">Current over</h3>
-
-          <div className="score-events">
-            {(s.currentOverDetails || []).length
-              ? s.currentOverDetails.map((event, index) => (
-                  <span key={index} className="score-event">
-                    {event}
+                  <span className="fx-team-overs">
+                    {latest
+                      ? (latest.overs ||
+                          oversText(latest.balls)) + ' ov'
+                      : ''}
                   </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="fx-main-score">
+            <div className="fx-score-left">
+              <div className="fx-overline">
+                {s.battingTeam} ·{' '}
+                {matchFinished
+                  ? 'Final innings'
+                  : 'Currently batting'}
+              </div>
+
+              <div className="fx-score-number" aria-live="polite">
+                {s.runs ?? 0}
+                <span>/{s.wickets ?? 0}</span>
+              </div>
+
+              <div className="fx-score-sub">
+                {oversText(balls)} / {FORMAT_OVERS[format]} overs
+                <span>•</span>
+                Extras {s.extras ?? 0}
+              </div>
+            </div>
+
+            <div className="fx-metrics">
+              <div>
+                <small>RUN RATE</small>
+                <strong>{rate(s.runs, balls)}</strong>
+              </div>
+
+              <div>
+                <small>FOURS</small>
+                <strong>
+                  {Object.values(s.batterStats || {}).reduce(
+                    (sum, p) => sum + Number(p.fours || 0),
+                    0
+                  )}
+                </strong>
+              </div>
+
+              <div>
+                <small>SIXES</small>
+                <strong>
+                  {Object.values(s.batterStats || {}).reduce(
+                    (sum, p) => sum + Number(p.sixes || 0),
+                    0
+                  )}
+                </strong>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className="fx-progress"
+            aria-label="Overs completed"
+          >
+            <div
+              style={{
+                width: `${
+                  Math.min(100, (balls / maxBalls) * 100)
+                }%`
+              }}
+            />
+          </div>
+
+          {result ? (
+            <div className="fx-match-note">
+              🏆 {result}
+            </div>
+          ) : isChase ? (
+            <div className="fx-chase-grid">
+              <div>
+                <small>TARGET</small>
+                <strong>{target}</strong>
+              </div>
+              <div>
+                <small>NEED</small>
+                <strong>{needed} runs</strong>
+              </div>
+              <div>
+                <small>BALLS LEFT</small>
+                <strong>{remainingBalls}</strong>
+              </div>
+              <div>
+                <small>REQUIRED RR</small>
+                <strong>
+                  {needed === 0
+                    ? '0.00'
+                    : remainingBalls
+                    ? rate(needed, remainingBalls)
+                    : '—'}
+                </strong>
+              </div>
+            </div>
+          ) : (
+            <div className="fx-match-note">
+              {format === 'Test'
+                ? 'Four-innings match'
+                : 'First innings in progress'}
+            </div>
+          )}
+        </section>
+
+        {/* ACTIVE PLAYER CARDS */}
+        <div className="fx-match-grid">
+          <section className="fx-card fx-current-card">
+            <div className="fx-section-heading">
+              <div>
+                <span className="fx-eyebrow">AT THE CREASE</span>
+                <h3>Current batters</h3>
+              </div>
+              <span className="fx-soft-tag">Batting</span>
+            </div>
+
+            {[
+              ['Striker', s.striker, true],
+              ['Non-striker', s.nonStriker, false]
+            ].map(([role, name, onStrike]) => {
+              const stats = (s.batterStats || {})[name] || {};
+
+              return (
+                <div className="fx-active-row" key={role}>
+                  <Avatar
+                    name={name || role}
+                    images={images}
+                  />
+
+                  <div className="fx-active-name">
+                    <strong>
+                      {name || 'Not selected'}
+                      {onStrike && name ? ' *' : ''}
+                    </strong>
+                    <small>{role}</small>
+                  </div>
+
+                  <div className="fx-active-score">
+                    <strong>
+                      {stats.runs ?? 0}{' '}
+                      <span>({stats.balls ?? 0})</span>
+                    </strong>
+                    <small>
+                      SR {strikeRate(stats.runs, stats.balls)}
+                    </small>
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          <section className="fx-card fx-current-card">
+            <div className="fx-section-heading">
+              <div>
+                <span className="fx-eyebrow">ON THE FIELD</span>
+                <h3>Current bowler</h3>
+              </div>
+              <span className="fx-soft-tag">Bowling</span>
+            </div>
+
+            <div className="fx-active-row fx-bowler-row">
+              <Avatar
+                name={s.bowler || 'Bowler'}
+                images={images}
+              />
+
+              <div className="fx-active-name">
+                <strong>
+                  {s.bowler || 'Not selected'}
+                </strong>
+                <small>Bowler</small>
+              </div>
+
+              <div className="fx-active-score">
+                <strong>
+                  {(s.bowlerStats || {})[s.bowler]?.wickets ?? 0}
+                  /
+                  {(s.bowlerStats || {})[s.bowler]?.runs ?? 0}
+                </strong>
+
+                <small>
+                  {oversText(
+                    (s.bowlerStats || {})[s.bowler]?.balls
+                  )} overs
+                </small>
+              </div>
+            </div>
+
+            <div className="fx-bowler-summary">
+              Economy
+              <strong>
+                {rate(
+                  (s.bowlerStats || {})[s.bowler]?.runs,
+                  (s.bowlerStats || {})[s.bowler]?.balls
+                )}
+              </strong>
+            </div>
+          </section>
+        </div>
+
+        {/* CURRENT OVER EVENTS */}
+        <section className="fx-card fx-over-card">
+          <div className="fx-section-heading">
+            <div>
+              <span className="fx-eyebrow">BALL BY BALL</span>
+              <h3>
+                {s.isOverComplete
+                  ? 'Last completed over'
+                  : 'Current over'}
+              </h3>
+            </div>
+            <span className="fx-soft-tag">
+              {oversText(balls)} ov
+            </span>
+          </div>
+
+          <div
+            className="fx-balls"
+            aria-label="Recent delivery outcomes"
+          >
+            {Array.isArray(s.currentOverDetails) &&
+            s.currentOverDetails.length
+              ? s.currentOverDetails.map((ball, index) => (
+                  <Ball
+                    key={`${index}-${ball}`}
+                    value={ball}
+                  />
                 ))
-              : <span>No deliveries recorded in this over.</span>
-            }
+              : (
+                  <span className="fx-muted">
+                    No deliveries recorded in this over yet.
+                  </span>
+                )}
           </div>
-        </div>
 
-        <div className="row-flex">
-          <div className="card col-500">
-            <h3 className="card-title">
-              🏏 Batting Scorecard
-            </h3>
+          <p className="fx-legend">
+            <span>●</span> W = Wicket
+            <span>●</span> 4 / 6 = Boundary
+            <span>●</span> wd / nb = Extra
+          </p>
+        </section>
 
-            <div className="table-responsive">
-              <table className="score-table">
-                <thead>
-                  <tr>
-                    <th>Batter</th>
-                    <th>R</th>
-                    <th>B</th>
-                    <th>4s</th>
-                    <th>6s</th>
-                    <th>SR</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {Object.entries(batting).map(
-                    ([name, stats]) => (
-                      <tr key={name}>
-                        <td>
-                          <div className="score-player-name">
-                            <img src={avatar(name)} alt="" />
-
-                            <div>
-                              <strong>{name}</strong>
-                              <small>
-                                {stats.isOut
-                                  ? stats.outBowler === 'Run Out'
-                                    ? 'Run Out'
-                                    : `b ${stats.outBowler}`
-                                  : 'not out'}
-                              </small>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td>{stats.runs || 0}</td>
-                        <td>{stats.balls || 0}</td>
-                        <td>{stats.fours || 0}</td>
-                        <td>{stats.sixes || 0}</td>
-
-                        <td>
-                          {percentage(
-                            stats.runs || 0,
-                            stats.balls || 0
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-
-              {!Object.keys(batting).length && (
-                <p>Batting has not started.</p>
-              )}
+        {/* INNINGS SCORECARDS */}
+        <section
+          className="fx-scorecards"
+          aria-label="Detailed scorecards"
+        >
+          <div className="fx-scorecard-title">
+            <div>
+              <span className="fx-eyebrow">
+                MATCH STATISTICS
+              </span>
+              <h2>Scorecards</h2>
             </div>
+
+            <span className="fx-muted">
+              Select an innings to view its statistics
+            </span>
           </div>
 
-          <div className="card col-500">
-            <h3 className="card-title">
-              🥎 Bowling Scorecard
-            </h3>
+          <div
+            className="fx-innings-tabs"
+            role="tablist"
+            aria-label="Innings scorecards"
+          >
+            {!matchFinished && (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={selectedInning === 'current'}
+                className={
+                  selectedInning === 'current'
+                    ? 'selected'
+                    : ''
+                }
+                onClick={() => setSelectedInning('current')}
+              >
+                Current innings
+              </button>
+            )}
 
-            <div className="table-responsive">
-              <table className="score-table">
-                <thead>
-                  <tr>
-                    <th>Bowler</th>
-                    <th>O</th>
-                    <th>R</th>
-                    <th>W</th>
-                    <th>Econ</th>
-                  </tr>
-                </thead>
+            {inningsHistory.map((inn, index) => {
+              const isSelected =
+                selectedInning === String(index) ||
+                (
+                  matchFinished &&
+                  selectedInning === 'current' &&
+                  index === inningsHistory.length - 1
+                );
 
-                <tbody>
-                  {Object.entries(bowling).map(
-                    ([name, stats]) => (
-                      <tr key={name}>
-                        <td>
-                          <div className="score-player-name">
-                            <img src={avatar(name)} alt="" />
-                            <strong>{name}</strong>
-                          </div>
-                        </td>
-
-                        <td>{formatOvers(stats.balls)}</td>
-                        <td>{stats.runs || 0}</td>
-                        <td>{stats.wickets || 0}</td>
-
-                        <td>
-                          {economy(stats.runs, stats.balls)}
-                        </td>
-                      </tr>
-                    )
-                  )}
-                </tbody>
-              </table>
-
-              {!Object.keys(bowling).length && (
-                <p>Bowling has not started.</p>
-              )}
-            </div>
+              return (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  key={`${inn.innings}-${index}`}
+                  className={isSelected ? 'selected' : ''}
+                  onClick={() =>
+                    setSelectedInning(String(index))
+                  }
+                >
+                  Innings {inn.innings} · {inn.team}
+                </button>
+              );
+            })}
           </div>
-        </div>
 
-        {innings.length > 0 && (
-          <div className="card">
-            <h3 className="card-title">
-              Completed Innings
-            </h3>
+          <div className="fx-selected-inning">
+            <span>
+              {scorecard.team || 'Current innings'}
+            </span>
 
-            <div className="score-history-list">
-              {innings.map((inn, index) => (
-                <details key={index}>
-                  <summary>
-                    Innings {inn.innings}: {inn.team}
-                    {' '}— {inn.runs}/{inn.wickets}
-                    {' '}({inn.overs} ov)
-                  </summary>
-
-                  <p>Extras: {inn.extras || 0}</p>
-
-                  <h4>Batting</h4>
-                  <ul>
-                    {Object.entries(
-                      inn.batterStats || {}
-                    ).map(([name, stats]) => (
-                      <li key={name}>
-                        {name}: {stats.runs || 0}
-                        {' '}({stats.balls || 0})
-                      </li>
-                    ))}
-                  </ul>
-
-                  <h4>Bowling</h4>
-                  <ul>
-                    {Object.entries(
-                      inn.bowlerStats || {}
-                    ).map(([name, stats]) => (
-                      <li key={name}>
-                        {name}: {stats.wickets || 0}
-                        /{stats.runs || 0}
-                        {' '}in {formatOvers(stats.balls)} overs
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ))}
-            </div>
+            <strong>
+              {scorecard.runs ?? 0}/{scorecard.wickets ?? 0}
+              {' '}
+              <small>
+                ({scorecard.overs ||
+                  oversText(scorecard.balls)} overs)
+              </small>
+            </strong>
           </div>
-        )}
+
+          <ScoreTable
+            inning={scorecard}
+            images={images}
+          />
+        </section>
+
+        <footer className="fx-footer">
+          <span>
+            Updated{' '}
+            {new Date(match.updated_at).toLocaleString()}
+          </span>
+          <span>
+            Scores are entered by the match administrator.
+          </span>
+        </footer>
+
       </div>
     </main>
   );
@@ -436,15 +902,12 @@ export default function PublicScoreboard() {
         setActiveFormat={setFormat}
       />
 
-      <div className="score-public-header">
-        <span>
-          Ambanpola FoxEleven · Live Cricket Scores
-        </span>
-
-        <Link to="/admin">Admin Login</Link>
+      <div className="fx-public-strip">
+        <span>FOXELEVEN / LIVE CRICKET</span>
+        <Link to="/admin">Admin login ↗</Link>
       </div>
 
-      <LiveScore key={format} format={format} />
+      <LiveMatch key={format} format={format} />
     </>
   );
 }

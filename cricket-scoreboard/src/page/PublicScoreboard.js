@@ -345,8 +345,7 @@ function LiveMatch({ format }) {
     : Boolean(s.teamsLocked && teamNames.length === 2);
 
   const balls = Number(s.balls || 0);
-  const maxBalls = FORMAT_OVERS[format] * 6;
-  const remainingBalls = Math.max(0, maxBalls - balls);
+ 
 
   const firstInnings = inningsHistory.find(
     item => Number(item.innings) === 1
@@ -361,9 +360,7 @@ function LiveMatch({ format }) {
     ? Number(firstInnings.runs) + 1
     : null;
 
-  const needed = target === null
-    ? null
-    : Math.max(0, target - Number(s.runs || 0));
+  
 
   const images = useMemo(() => {
     const players = [
@@ -398,14 +395,6 @@ function LiveMatch({ format }) {
     bowlerStats: s.bowlerStats || {}
   };
 
-  const scoreEntries = matchFinished
-    ? inningsHistory
-    : [...inningsHistory, current];
-
-  const lastScoreFor = team =>
-    [...scoreEntries].reverse().find(
-      item => item.team === team
-    );
 
   const scorecard = selectedInning === 'current'
     ? (

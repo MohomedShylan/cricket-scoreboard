@@ -1,42 +1,34 @@
-import React, { useState } from 'react';
-import Navigation from './page/Navigation';
-import Scoreboard from './page/Scoreboard';
-import OdiScoreboard from './page/OdiScoreboard';
-import T20Scoreboard from './page/T20Scoreboard';
-import T10Scoreboard from './page/T10Scoreboard';
-import T5Scoreboard from './page/T5Scoreboard';
-import { GENZ_PLAYERS } from './genZData';
-import { OG_PLAYERS } from './ogData';
+
+import React from 'react';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate
+} from 'react-router-dom';
+
+import PublicScoreboard from './page/PublicScoreboard';
+import AdminPage from './page/AdminPage';
 
 export default function App() {
-  const [activeFormat, setActiveFormat] = useState('Test');
-
   return (
-    <div>
-      <Navigation activeFormat={activeFormat} setActiveFormat={setActiveFormat} />
-      
-      {activeFormat === 'Test' && (
-        <Scoreboard 
-          genZRoster={GENZ_PLAYERS} 
-          ogRoster={OG_PLAYERS} 
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={<PublicScoreboard />}
         />
-      )}
 
-      {activeFormat === 'ODI' && (
-        <OdiScoreboard />
-      )}
+        <Route
+          path="/admin"
+          element={<AdminPage />}
+        />
 
-      {activeFormat === 'T20' && (
-        <T20Scoreboard />
-      )}
-
-      {activeFormat === 'T10' && (
-        <T10Scoreboard />
-      )}
-
-      {activeFormat === '5 Over' && (
-        <T5Scoreboard />
-      )}
-    </div>
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }

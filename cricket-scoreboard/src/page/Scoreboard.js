@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useSavedState } from './useSavedState';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './Scoreboard.css';
@@ -24,37 +25,37 @@ const calculateEconomy = (runs, totalBalls) => {
   return ((runs / totalBalls) * 6).toFixed(2);
 };
 
-export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup }) {
-  const [liveGenZRoster, setLiveGenZRoster] = useState(genZRoster);
-  const [liveOgRoster, setLiveOgRoster] = useState(ogRoster);
+export default function Scoreboard({ genZRoster, ogRoster, onBackToSetup, initialState = {}, onStateChange }) {
+  const [liveGenZRoster, setLiveGenZRoster] = useSavedState('liveGenZRoster', genZRoster, initialState, onStateChange);
+  const [liveOgRoster, setLiveOgRoster] = useSavedState('liveOgRoster', ogRoster, initialState, onStateChange);
 
-  const [currentInnings, setCurrentInnings] = useState(1);
-  const [battingTeam, setBattingTeam] = useState(TEAMS.GEN_Z);
-  const [selectedTeam, setSelectedTeam] = useState(TEAMS.GEN_Z);
-  const [selectedInnings, setSelectedInnings] = useState(1);
+  const [currentInnings, setCurrentInnings] = useSavedState('currentInnings', 1, initialState, onStateChange);
+  const [battingTeam, setBattingTeam] = useSavedState('battingTeam', TEAMS.GEN_Z, initialState, onStateChange);
+  const [selectedTeam, setSelectedTeam] = useSavedState('selectedTeam', TEAMS.GEN_Z, initialState, onStateChange);
+  const [selectedInnings, setSelectedInnings] = useSavedState('selectedInnings', 1, initialState, onStateChange);
 
-  const [runs, setRuns] = useState(0);
-  const [wickets, setWickets] = useState(0);
-  const [balls, setBalls] = useState(0); 
-  const [extras, setExtras] = useState(0); 
+  const [runs, setRuns] = useSavedState('runs', 0, initialState, onStateChange);
+  const [wickets, setWickets] = useSavedState('wickets', 0, initialState, onStateChange);
+  const [balls, setBalls] = useSavedState('balls', 0, initialState, onStateChange); 
+  const [extras, setExtras] = useSavedState('extras', 0, initialState, onStateChange); 
 
-  const [currentOverDetails, setCurrentOverDetails] = useState([]);
-  const [isOverComplete, setIsOverComplete] = useState(false);
+  const [currentOverDetails, setCurrentOverDetails] = useSavedState('currentOverDetails', [], initialState, onStateChange);
+  const [isOverComplete, setIsOverComplete] = useSavedState('isOverComplete', false, initialState, onStateChange);
 
-  const [striker, setStriker] = useState('');
-  const [nonStriker, setNonStriker] = useState('');
-  const [bowler, setBowler] = useState('');
+  const [striker, setStriker] = useSavedState('striker', '', initialState, onStateChange);
+  const [nonStriker, setNonStriker] = useSavedState('nonStriker', '', initialState, onStateChange);
+  const [bowler, setBowler] = useSavedState('bowler', '', initialState, onStateChange);
 
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [newPlayerTeam, setNewPlayerTeam] = useState(TEAMS.GEN_Z);
-  const [removePlayerTeam, setRemovePlayerTeam] = useState(TEAMS.GEN_Z);
-  const [removePlayerName, setRemovePlayerName] = useState('');
+  const [newPlayerName, setNewPlayerName] = useSavedState('newPlayerName', '', initialState, onStateChange);
+  const [newPlayerTeam, setNewPlayerTeam] = useSavedState('newPlayerTeam', TEAMS.GEN_Z, initialState, onStateChange);
+  const [removePlayerTeam, setRemovePlayerTeam] = useSavedState('removePlayerTeam', TEAMS.GEN_Z, initialState, onStateChange);
+  const [removePlayerName, setRemovePlayerName] = useSavedState('removePlayerName', '', initialState, onStateChange);
 
-  const [batterStats, setBatterStats] = useState({});
-  const [bowlerStats, setBowlerStats] = useState({});
-  const [inningsHistory, setInningsHistory] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [activeHistoryTab, setActiveHistoryTab] = useState(0);
+  const [batterStats, setBatterStats] = useSavedState('batterStats', {}, initialState, onStateChange);
+  const [bowlerStats, setBowlerStats] = useSavedState('bowlerStats', {}, initialState, onStateChange);
+  const [inningsHistory, setInningsHistory] = useSavedState('inningsHistory', [], initialState, onStateChange);
+  const [history, setHistory] = useSavedState('history', [], initialState, onStateChange);
+  const [activeHistoryTab, setActiveHistoryTab] = useSavedState('activeHistoryTab', 0, initialState, onStateChange);
 
   const battingRoster = battingTeam === TEAMS.GEN_Z ? liveGenZRoster : liveOgRoster;
   const bowlingRoster = battingTeam === TEAMS.GEN_Z ? liveOgRoster : liveGenZRoster;

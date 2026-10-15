@@ -293,3 +293,11 @@
     padding: 15px 20px;
   }
 }
+/* Custom Test bowling limits */
+.bowler-limit-info {
+  margin: 3px 0 10px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}

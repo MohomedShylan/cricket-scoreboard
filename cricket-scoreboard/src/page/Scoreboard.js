@@ -9,18 +9,14 @@ const TEAMS = {
   GEN_Z: 'White Panthers',
   OG: 'Gladiators',
 
-  //  GEN_Z: 'Ambanpola Vikings',
+  // GEN_Z: 'Ambanpola Vikings',
   // OG: 'Ambanpola Shadows',
 };
 
-// Custom Test match rules
+// Match rules
 const TEST_OVERS = 35;
 const TEST_MAX_BALLS = TEST_OVERS * 7;
-// const MAX_SIX_OVER_BOWLERS = 3;
-const SIX_OVER_LIMIT = 36;
-const OTHER_BOWLER_LIMIT = 30;
 
-// Match player names regardless of case or surrounding spaces
 const normalizePlayerName = name =>
   String(name || '').trim().toLowerCase();
 
@@ -45,7 +41,10 @@ export default function Scoreboard({
   initialState = {},
   onStateChange
 }) {
-  // Saved team rosters
+  // ==========================================
+  // SAVED TEAM ROSTERS
+  // ==========================================
+
   const [liveGenZRoster, setLiveGenZRoster] = useSavedState(
     'liveGenZRoster', genZRoster, initialState, onStateChange
   );
@@ -54,7 +53,10 @@ export default function Scoreboard({
     'liveOgRoster', ogRoster, initialState, onStateChange
   );
 
-  // Match information
+  // ==========================================
+  // MATCH INFORMATION
+  // ==========================================
+
   const [currentInnings, setCurrentInnings] = useSavedState(
     'currentInnings', 1, initialState, onStateChange
   );
@@ -71,7 +73,10 @@ export default function Scoreboard({
     'selectedInnings', 1, initialState, onStateChange
   );
 
-  // Score
+  // ==========================================
+  // SCORE
+  // ==========================================
+
   const [runs, setRuns] = useSavedState(
     'runs', 0, initialState, onStateChange
   );
@@ -96,7 +101,15 @@ export default function Scoreboard({
     'isOverComplete', false, initialState, onStateChange
   );
 
-  // Active players
+  // Configurable maximum overs for each bowler
+  const [maxBowlerOvers, setMaxBowlerOvers] = useSavedState(
+    'maxBowlerOvers', 6, initialState, onStateChange
+  );
+
+  // ==========================================
+  // ACTIVE PLAYERS
+  // ==========================================
+
   const [striker, setStriker] = useSavedState(
     'striker', '', initialState, onStateChange
   );
@@ -109,7 +122,10 @@ export default function Scoreboard({
     'bowler', '', initialState, onStateChange
   );
 
-  // Player management
+  // ==========================================
+  // PLAYER MANAGEMENT
+  // ==========================================
+
   const [newPlayerName, setNewPlayerName] = useSavedState(
     'newPlayerName', '', initialState, onStateChange
   );
@@ -126,7 +142,10 @@ export default function Scoreboard({
     'removePlayerName', '', initialState, onStateChange
   );
 
-  // Statistics and history
+  // ==========================================
+  // STATISTICS AND HISTORY
+  // ==========================================
+
   const [batterStats, setBatterStats] = useSavedState(
     'batterStats', {}, initialState, onStateChange
   );
@@ -147,7 +166,10 @@ export default function Scoreboard({
     'activeHistoryTab', 0, initialState, onStateChange
   );
 
-  // Current batting and bowling teams
+  // ==========================================
+  // TEAM DATA
+  // ==========================================
+
   const battingRoster =
     battingTeam === TEAMS.GEN_Z ? liveGenZRoster : liveOgRoster;
 
@@ -160,30 +182,20 @@ export default function Scoreboard({
   ];
 
   // ==========================================
-  // CUSTOM BOWLING RULES
+  // BOWLER MAXIMUM OVERS
   // ==========================================
 
-  const sixOverBowlers = Object.entries(bowlerStats)
-    .filter(([, stats]) =>
-      Number(stats?.balls || 0) > OTHER_BOWLER_LIMIT
-    )
-    .map(([name]) => name);
-
-  // const bowlerBallLimit = name =>
-  //   sixOverBowlers.includes(name) ||
-  //   sixOverBowlers.length < MAX_SIX_OVER_BOWLERS
-  //     ? SIX_OVER_LIMIT
-  //     : OTHER_BOWLER_LIMIT;
+  // All bowlers follow the same configurable limit.
+  const bowlerBallLimit = Number(maxBowlerOvers) * 6;
 
   const canUseBowler = name =>
     Boolean(name) &&
-    Number(bowlerStats[name]?.balls || 0) <
-      bowlerBallLimit(name);
+    Number(bowlerStats[name]?.balls || 0) < bowlerBallLimit;
 
   const canScoreDelivery = () => {
     if (balls >= TEST_MAX_BALLS) {
       alert(
-        '30 overs completed. End the innings before scoring again.'
+        `${TEST_OVERS} overs completed. End the innings before scoring again.`
       );
       return false;
     }
@@ -197,8 +209,7 @@ export default function Scoreboard({
 
     if (bowler && !canUseBowler(bowler)) {
       alert(
-        `${bowler} has reached the permitted ` +
-        `${bowlerBallLimit(bowler) / 6}-over limit. ` +
+        `${bowler} has reached the ${maxBowlerOvers}-over limit. ` +
         'Select another bowler.'
       );
       return false;
@@ -208,7 +219,7 @@ export default function Scoreboard({
   };
 
   // ==========================================
-  // PLAYER MANAGEMENT
+  // PLAYER MANAGEMENT FUNCTIONS
   // ==========================================
 
   const handleAddPlayer = () => {
@@ -276,13 +287,12 @@ export default function Scoreboard({
   };
 
   // ==========================================
-  // UPDATED PLAYER IMAGE LOADING
+  // PLAYER IMAGE LOADING
   // ==========================================
 
   const getAvatarUrl = (name, isBowler = false) => {
     const normalized = normalizePlayerName(name);
 
-    // Latest player data passed from AdminPage.js
     const officialPlayer = [
       ...genZRoster,
       ...ogRoster
@@ -291,13 +301,11 @@ export default function Scoreboard({
         normalizePlayerName(player.name) === normalized
     );
 
-    // Previously saved roster from Supabase
     const savedPlayer = allPlayersData.find(
       player =>
         normalizePlayerName(player.name) === normalized
     );
 
-    // Prefer the latest player image
     const officialImage = String(
       officialPlayer?.image || ''
     ).trim();
@@ -310,7 +318,6 @@ export default function Scoreboard({
       return officialImage || savedImage;
     }
 
-    // Avatar fallback
     const bgColor = isBowler ? 'fecaca' : 'cbd5e1';
     const textColor = isBowler ? '991b1b' : '1e293b';
 
@@ -369,11 +376,9 @@ export default function Scoreboard({
     const existsInRoster = (name, roster) =>
       roster.some(player => player.name === name);
 
-    // Update rosters stored through useSavedState
     setLiveGenZRoster(vikings);
     setLiveOgRoster(shadows);
 
-    // Remove invalid player selections
     if (
       striker &&
       !existsInRoster(striker, newBattingRoster)
@@ -408,7 +413,7 @@ export default function Scoreboard({
   // ==========================================
 
   const buildPDF = (
-    doc, title, inningsNum, bTeam,
+    doc, title, inningsNum,
     teamRuns, teamWickets, teamOvers,
     teamExtras, batStats, bowlStats
   ) => {
@@ -438,12 +443,14 @@ export default function Scoreboard({
           if (current[1].wickets > best[1].wickets) {
             return current;
           }
+
           if (
             current[1].wickets === best[1].wickets &&
             current[1].runs < best[1].runs
           ) {
             return current;
           }
+
           return best;
         }
       );
@@ -529,7 +536,6 @@ export default function Scoreboard({
       doc,
       `Inning Summary: ${battingTeam}`,
       currentInnings,
-      battingTeam,
       runs,
       wickets,
       formatOvers(balls),
@@ -550,7 +556,6 @@ export default function Scoreboard({
       doc,
       `Inning Summary: ${data.team}`,
       data.innings,
-      data.team,
       data.runs,
       data.wickets,
       data.overs,
@@ -761,7 +766,7 @@ export default function Scoreboard({
     if (newBalls >= TEST_MAX_BALLS) {
       setTimeout(() => {
         alert(
-          "30 overs completed! Please click 'Declare / End Innings'."
+          `${TEST_OVERS} overs completed! Please click 'Declare / End Innings'.`
         );
       }, 500);
     }
@@ -973,7 +978,7 @@ export default function Scoreboard({
       } else if (newBalls >= TEST_MAX_BALLS) {
         setTimeout(() => {
           alert(
-            "30 overs completed! Please click 'Declare / End Innings'."
+            `${TEST_OVERS} overs completed! Please click 'Declare / End Innings'.`
           );
         }, 500);
       }
@@ -1049,7 +1054,7 @@ export default function Scoreboard({
       } else if (newBalls >= TEST_MAX_BALLS) {
         setTimeout(() => {
           alert(
-            "30 overs completed! Please click 'Declare / End Innings'."
+            `${TEST_OVERS} overs completed! Please click 'Declare / End Innings'.`
           );
         }, 500);
       }
@@ -1136,6 +1141,27 @@ export default function Scoreboard({
                   ))}
                 </select>
               </div>
+
+              {/* MAXIMUM BOWLER OVERS */}
+              <label className="input-label" htmlFor="maxBowlerOvers">
+                Maximum overs per bowler:
+              </label>
+
+              <select
+                id="maxBowlerOvers"
+                value={maxBowlerOvers}
+                onChange={e => setMaxBowlerOvers(Number(e.target.value))}
+                className="input-field"
+              >
+                {Array.from(
+                  { length: TEST_OVERS },
+                  (_, i) => i + 1
+                ).map(overs => (
+                  <option key={overs} value={overs}>
+                    {overs} {overs === 1 ? 'over' : 'overs'}
+                  </option>
+                ))}
+              </select>
 
               <button
                 onClick={applySettings}
@@ -1270,11 +1296,7 @@ export default function Scoreboard({
                         const used =
                           Number(bowlerStats[p.name]?.balls || 0);
 
-                        const limit =
-                          bowlerBallLimit(p.name);
-
-                        const maxReached =
-                          !canUseBowler(p.name);
+                        const maxReached = !canUseBowler(p.name);
 
                         return (
                           <option
@@ -1284,7 +1306,7 @@ export default function Scoreboard({
                           >
                             {p.name} (
                             {formatOvers(used)} /
-                            {formatOvers(limit)})
+                            {formatOvers(bowlerBallLimit)})
                             {maxReached ? ' - Limit Reached' : ''}
                           </option>
                         );
@@ -1292,8 +1314,7 @@ export default function Scoreboard({
                     </select>
 
                     <p className="bowler-limit-info">
-                      Six-over bowlers: {sixOverBowlers.length} / 3
-                      {' '}· Other bowlers: maximum 5 overs
+                      Maximum {maxBowlerOvers} overs per bowler
                     </p>
                   </div>
                 </div>
@@ -1788,6 +1809,7 @@ export default function Scoreboard({
                   <div className="history-tab-title">
                     {inn.team}
                   </div>
+
                   <div className="history-tab-subtitle">
                     Innings {inn.innings}
                   </div>

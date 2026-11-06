@@ -5,35 +5,72 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import './Scoreboard.css';
 
+// ==========================================
+// TEAM CONFIGURATION
+// ==========================================
+
 const TEAMS = {
   GEN_Z: 'White Panthers',
-  OG: 'Gladiators',
-
-  // GEN_Z: 'Ambanpola Vikings',
-  // OG: 'Ambanpola Shadows',
+  OG: 'Gladiators'
 };
 
-// Match rules
 const TEST_OVERS = 35;
-const TEST_MAX_BALLS = TEST_OVERS * 7;
+const TEST_MAX_BALLS = TEST_OVERS * 6;
+const MAX_WICKETS = 12;
+
+const isCurrentTeam = name =>
+  name === TEAMS.GEN_Z || name === TEAMS.OG;
 
 const normalizePlayerName = name =>
   String(name || '').trim().toLowerCase();
 
 const formatOvers = totalBalls => {
-  if (!totalBalls) return '0.0';
-  return `${Math.floor(totalBalls / 6)}.${totalBalls % 6}`;
+  const value = Number(totalBalls) || 0;
+  return `${Math.floor(value / 6)}.${value % 6}`;
 };
 
-const calculateStrikeRate = (runs, balls) => {
-  if (!balls) return '0.00';
-  return ((runs / balls) * 100).toFixed(2);
+const calculateStrikeRate = (runs, balls) =>
+  Number(balls) > 0
+    ? ((Number(runs || 0) / balls) * 100).toFixed(2)
+    : '0.00';
+
+const calculateEconomy = (runs, balls) =>
+  Number(balls) > 0
+    ? ((Number(runs || 0) / balls) * 6).toFixed(2)
+    : '0.00';
+
+const getFallbackAvatar = (name, isBowler = false) => {
+  const bg = isBowler ? 'fecaca' : 'cbd5e1';
+  const color = isBowler ? '991b1b' : '1e293b';
+
+  return (
+    `https://ui-avatars.com/api/?name=${encodeURIComponent(name || '?')}` +
+    `&background=${bg}&color=${color}&rounded=true&bold=true`
+  );
 };
 
-const calculateEconomy = (runs, balls) => {
-  if (!balls) return '0.00';
-  return ((runs / balls) * 6).toFixed(2);
-};
+const PlayerImage = ({
+  name,
+  src,
+  className = 'avatar',
+  isBowler = false
+}) => (
+  <img
+    src={src}
+    alt={name || 'Player'}
+    className={className}
+    onError={event => {
+      const fallback = getFallbackAvatar(name, isBowler);
+      if (event.currentTarget.src !== fallback) {
+        event.currentTarget.src = fallback;
+      }
+    }}
+  />
+);
+
+// ==========================================
+// SCOREBOARD
+// ==========================================
 
 export default function Scoreboard({
   genZRoster = [],
@@ -41,22 +78,22 @@ export default function Scoreboard({
   initialState = {},
   onStateChange
 }) {
-  // ==========================================
-  // SAVED TEAM ROSTERS
-  // ==========================================
-
+  // Team rosters
   const [liveGenZRoster, setLiveGenZRoster] = useSavedState(
-    'liveGenZRoster', genZRoster, initialState, onStateChange
+    'liveGenZRoster',
+    genZRoster,
+    initialState,
+    onStateChange
   );
 
   const [liveOgRoster, setLiveOgRoster] = useSavedState(
-    'liveOgRoster', ogRoster, initialState, onStateChange
+    'liveOgRoster',
+    ogRoster,
+    initialState,
+    onStateChange
   );
 
-  // ==========================================
-  // MATCH INFORMATION
-  // ==========================================
-
+  // Match information
   const [currentInnings, setCurrentInnings] = useSavedState(
     'currentInnings', 1, initialState, onStateChange
   );
@@ -73,10 +110,7 @@ export default function Scoreboard({
     'selectedInnings', 1, initialState, onStateChange
   );
 
-  // ==========================================
-  // SCORE
-  // ==========================================
-
+  // Match score
   const [runs, setRuns] = useSavedState(
     'runs', 0, initialState, onStateChange
   );
@@ -101,15 +135,12 @@ export default function Scoreboard({
     'isOverComplete', false, initialState, onStateChange
   );
 
-  // Configurable maximum overs for each bowler
+  // Maximum overs per bowler
   const [maxBowlerOvers, setMaxBowlerOvers] = useSavedState(
     'maxBowlerOvers', 6, initialState, onStateChange
   );
 
-  // ==========================================
-  // ACTIVE PLAYERS
-  // ==========================================
-
+  // Active players
   const [striker, setStriker] = useSavedState(
     'striker', '', initialState, onStateChange
   );
@@ -122,10 +153,7 @@ export default function Scoreboard({
     'bowler', '', initialState, onStateChange
   );
 
-  // ==========================================
-  // PLAYER MANAGEMENT
-  // ==========================================
-
+  // Player management
   const [newPlayerName, setNewPlayerName] = useSavedState(
     'newPlayerName', '', initialState, onStateChange
   );
@@ -142,10 +170,7 @@ export default function Scoreboard({
     'removePlayerName', '', initialState, onStateChange
   );
 
-  // ==========================================
-  // STATISTICS AND HISTORY
-  // ==========================================
-
+  // Score statistics
   const [batterStats, setBatterStats] = useSavedState(
     'batterStats', {}, initialState, onStateChange
   );
@@ -154,6 +179,7 @@ export default function Scoreboard({
     'bowlerStats', {}, initialState, onStateChange
   );
 
+  // Saved innings and undo history
   const [inningsHistory, setInningsHistory] = useSavedState(
     'inningsHistory', [], initialState, onStateChange
   );
@@ -167,30 +193,64 @@ export default function Scoreboard({
   );
 
   // ==========================================
-  // TEAM DATA
+  // CURRENT TEAM DATA
   // ==========================================
+
+  // Protect against old team names in saved state.
+  const currentBattingTeam = isCurrentTeam(battingTeam)
+    ? battingTeam
+    : TEAMS.GEN_Z;
+
+  const currentSelectedTeam = isCurrentTeam(selectedTeam)
+    ? selectedTeam
+    : TEAMS.GEN_Z;
 
   const battingRoster =
-    battingTeam === TEAMS.GEN_Z ? liveGenZRoster : liveOgRoster;
+    currentBattingTeam === TEAMS.GEN_Z
+      ? liveGenZRoster
+      : liveOgRoster;
 
   const bowlingRoster =
-    battingTeam === TEAMS.GEN_Z ? liveOgRoster : liveGenZRoster;
-
-  const allPlayersData = [
-    ...liveGenZRoster,
-    ...liveOgRoster
-  ];
+    currentBattingTeam === TEAMS.GEN_Z
+      ? liveOgRoster
+      : liveGenZRoster;
 
   // ==========================================
-  // BOWLER MAXIMUM OVERS
+  // NEW TEAM MATCH HISTORY
   // ==========================================
 
-  // All bowlers follow the same configurable limit.
+  // Display only innings belonging to the new teams.
+  // Do not rename old innings or transfer their scores.
+  const currentTeamHistory = (
+    Array.isArray(inningsHistory) ? inningsHistory : []
+  ).filter(item => isCurrentTeam(item?.team));
+
+  const hasOldTeamHistory = (
+    Array.isArray(inningsHistory) ? inningsHistory : []
+  ).some(item => !isCurrentTeam(item?.team));
+
+  const safeHistoryIndex = Math.max(
+    0,
+    Math.min(
+      Number(activeHistoryTab) || 0,
+      currentTeamHistory.length - 1
+    )
+  );
+
+  const historyData = currentTeamHistory[safeHistoryIndex];
+
+  // ==========================================
+  // BOWLING RESTRICTIONS
+  // ==========================================
+
   const bowlerBallLimit = Number(maxBowlerOvers) * 6;
 
-  const canUseBowler = name =>
-    Boolean(name) &&
-    Number(bowlerStats[name]?.balls || 0) < bowlerBallLimit;
+  const canUseBowler = name => {
+    if (!name) return false;
+
+    const used = Number(bowlerStats[name]?.balls || 0);
+    return used < bowlerBallLimit;
+  };
 
   const canScoreDelivery = () => {
     if (balls >= TEST_MAX_BALLS) {
@@ -200,9 +260,9 @@ export default function Scoreboard({
       return false;
     }
 
-    if (wickets >= 12) {
+    if (wickets >= MAX_WICKETS) {
       alert(
-        'All 12 wickets have fallen. End the innings.'
+        `All ${MAX_WICKETS} wickets have fallen. End the innings.`
       );
       return false;
     }
@@ -210,7 +270,7 @@ export default function Scoreboard({
     if (bowler && !canUseBowler(bowler)) {
       alert(
         `${bowler} has reached the ${maxBowlerOvers}-over limit. ` +
-        'Select another bowler.'
+        'Please select another bowler.'
       );
       return false;
     }
@@ -219,12 +279,56 @@ export default function Scoreboard({
   };
 
   // ==========================================
-  // PLAYER MANAGEMENT FUNCTIONS
+  // PLAYER IMAGE LOADING
+  // ==========================================
+
+  const getAvatarUrl = (
+    name,
+    isBowler = false,
+    teamOverride = null
+  ) => {
+    const normalized = normalizePlayerName(name);
+
+    const team = teamOverride || (
+      isBowler
+        ? currentBattingTeam === TEAMS.GEN_Z
+          ? TEAMS.OG
+          : TEAMS.GEN_Z
+        : currentBattingTeam
+    );
+
+    const officialRoster =
+      team === TEAMS.GEN_Z ? genZRoster : ogRoster;
+
+    const savedRoster =
+      team === TEAMS.GEN_Z
+        ? liveGenZRoster
+        : liveOgRoster;
+
+    const findPlayer = roster =>
+      roster.find(
+        player =>
+          normalizePlayerName(player.name) === normalized
+      );
+
+    const officialPlayer = findPlayer(officialRoster);
+    const savedPlayer = findPlayer(savedRoster);
+
+    const image = String(
+      officialPlayer?.image || savedPlayer?.image || ''
+    ).trim();
+
+    return image || getFallbackAvatar(name, isBowler);
+  };
+
+  // ==========================================
+  // PLAYER MANAGEMENT
   // ==========================================
 
   const handleAddPlayer = () => {
     if (!newPlayerName.trim()) {
-      return alert('Please enter a valid player name!');
+      alert('Please enter a valid player name!');
+      return;
     }
 
     const newPlayer = {
@@ -235,21 +339,19 @@ export default function Scoreboard({
     };
 
     if (newPlayerTeam === TEAMS.GEN_Z) {
-      setLiveGenZRoster([...liveGenZRoster, newPlayer]);
+      setLiveGenZRoster(prev => [...prev, newPlayer]);
     } else {
-      setLiveOgRoster([...liveOgRoster, newPlayer]);
+      setLiveOgRoster(prev => [...prev, newPlayer]);
     }
 
-    alert(
-      `${newPlayer.name} has been successfully added to ${newPlayerTeam}!`
-    );
-
+    alert(`${newPlayer.name} added to ${newPlayerTeam}!`);
     setNewPlayerName('');
   };
 
   const handleRemovePlayer = () => {
     if (!removePlayerName) {
-      return alert('Please select a player to remove!');
+      alert('Please select a player to remove!');
+      return;
     }
 
     if (
@@ -257,88 +359,39 @@ export default function Scoreboard({
       removePlayerName === nonStriker ||
       removePlayerName === bowler
     ) {
-      return alert(
+      alert(
         'You cannot remove a player who is currently active on the field!'
+      );
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${removePlayerName} from ${removePlayerTeam}?`
+    );
+
+    if (!confirmed) return;
+
+    if (removePlayerTeam === TEAMS.GEN_Z) {
+      setLiveGenZRoster(prev =>
+        prev.filter(p => p.name !== removePlayerName)
+      );
+    } else {
+      setLiveOgRoster(prev =>
+        prev.filter(p => p.name !== removePlayerName)
       );
     }
 
-    if (
-      window.confirm(
-        `Are you sure you want to remove ${removePlayerName} from ${removePlayerTeam}?`
-      )
-    ) {
-      if (removePlayerTeam === TEAMS.GEN_Z) {
-        setLiveGenZRoster(
-          liveGenZRoster.filter(
-            p => p.name !== removePlayerName
-          )
-        );
-      } else {
-        setLiveOgRoster(
-          liveOgRoster.filter(
-            p => p.name !== removePlayerName
-          )
-        );
-      }
-
-      alert(`${removePlayerName} has been removed.`);
-      setRemovePlayerName('');
-    }
+    setRemovePlayerName('');
+    alert('Player removed successfully!');
   };
 
   // ==========================================
-  // PLAYER IMAGE LOADING
-  // ==========================================
-
-  const getAvatarUrl = (name, isBowler = false) => {
-    const normalized = normalizePlayerName(name);
-
-    const officialPlayer = [
-      ...genZRoster,
-      ...ogRoster
-    ].find(
-      player =>
-        normalizePlayerName(player.name) === normalized
-    );
-
-    const savedPlayer = allPlayersData.find(
-      player =>
-        normalizePlayerName(player.name) === normalized
-    );
-
-    const officialImage = String(
-      officialPlayer?.image || ''
-    ).trim();
-
-    const savedImage = String(
-      savedPlayer?.image || ''
-    ).trim();
-
-    if (officialImage || savedImage) {
-      return officialImage || savedImage;
-    }
-
-    const bgColor = isBowler ? 'fecaca' : 'cbd5e1';
-    const textColor = isBowler ? '991b1b' : '1e293b';
-
-    return (
-      `https://ui-avatars.com/api/?name=${encodeURIComponent(name || '?')}` +
-      `&background=${bgColor}&color=${textColor}&rounded=true&bold=true`
-    );
-  };
-
-  // ==========================================
-  // REFRESH OFFICIAL SQUADS
+  // REFRESH OFFICIAL TEAM ROSTERS
   // ==========================================
 
   const syncTeamRosters = () => {
-    const vikings = genZRoster.map(player => ({
-      ...player
-    }));
-
-    const shadows = ogRoster.map(player => ({
-      ...player
-    }));
+    const whitePanthers = genZRoster.map(p => ({ ...p }));
+    const gladiators = ogRoster.map(p => ({ ...p }));
 
     const matchHasScores =
       balls > 0 ||
@@ -350,60 +403,57 @@ export default function Scoreboard({
     const warning = matchHasScores
       ? (
           'A match has already started.\n\n' +
-          'Saved scores and completed innings will remain unchanged, ' +
-          'but players missing from the latest squads will be removed ' +
-          'from the selection lists. Active selections may be cleared.\n\n'
+          'Scores and completed innings will remain unchanged, ' +
+          'but players missing from the new rosters will be removed. ' +
+          'Active selections may be cleared.\n\n'
         )
       : '';
 
     const confirmed = window.confirm(
       warning +
-      `Replace the saved squads with the latest official players?\n\n` +
-      `${TEAMS.GEN_Z}: ${vikings.length} players\n` +
-      `${TEAMS.OG}: ${shadows.length} players\n\n` +
-      'Players added only through the admin page will be removed ' +
-      'from the squad lists unless they exist in the official data files.'
+      'Refresh the official team rosters?\n\n' +
+      `White Panthers: ${whitePanthers.length} players\n` +
+      `Gladiators: ${gladiators.length} players\n\n` +
+      'Players added only through the admin page may be removed.'
     );
 
     if (!confirmed) return;
 
     const newBattingRoster =
-      battingTeam === TEAMS.OG ? shadows : vikings;
+      currentBattingTeam === TEAMS.GEN_Z
+        ? whitePanthers
+        : gladiators;
 
     const newBowlingRoster =
-      battingTeam === TEAMS.OG ? vikings : shadows;
+      currentBattingTeam === TEAMS.GEN_Z
+        ? gladiators
+        : whitePanthers;
 
-    const existsInRoster = (name, roster) =>
-      roster.some(player => player.name === name);
+    const playerExists = (name, roster) =>
+      roster.some(p => p.name === name);
 
-    setLiveGenZRoster(vikings);
-    setLiveOgRoster(shadows);
+    setLiveGenZRoster(whitePanthers);
+    setLiveOgRoster(gladiators);
 
-    if (
-      striker &&
-      !existsInRoster(striker, newBattingRoster)
-    ) {
+    if (striker && !playerExists(striker, newBattingRoster)) {
       setStriker('');
     }
 
     if (
       nonStriker &&
-      !existsInRoster(nonStriker, newBattingRoster)
+      !playerExists(nonStriker, newBattingRoster)
     ) {
       setNonStriker('');
     }
 
-    if (
-      bowler &&
-      !existsInRoster(bowler, newBowlingRoster)
-    ) {
+    if (bowler && !playerExists(bowler, newBowlingRoster)) {
       setBowler('');
     }
 
     setRemovePlayerName('');
 
     alert(
-      'Official squads refreshed successfully!\n\n' +
+      'Official White Panthers and Gladiators squads refreshed!\n\n' +
       "Please wait for 'All changes saved' before leaving."
     );
   };
@@ -413,52 +463,49 @@ export default function Scoreboard({
   // ==========================================
 
   const buildPDF = (
-    doc, title, inningsNum,
-    teamRuns, teamWickets, teamOvers,
-    teamExtras, batStats, bowlStats
+    doc,
+    title,
+    inningsNum,
+    teamRuns,
+    teamWickets,
+    teamOvers,
+    teamExtras,
+    batStats,
+    bowlStats
   ) => {
-    const allBatters = Object.entries(batStats);
-    const allBowlers = Object.entries(bowlStats);
+    const allBatters = Object.entries(batStats || {});
+    const allBowlers = Object.entries(bowlStats || {});
 
     let bestBatterStr = 'None';
 
     if (allBatters.length > 0) {
-      const bestBatter = allBatters.reduce(
-        (best, current) =>
-          current[1].runs > best[1].runs
-            ? current
-            : best
+      const best = allBatters.reduce(
+        (a, b) => b[1].runs > a[1].runs ? b : a
       );
 
       bestBatterStr =
-        `${bestBatter[0]} (${bestBatter[1].runs} runs ` +
-        `from ${bestBatter[1].balls} balls)`;
+        `${best[0]} (${best[1].runs} runs ` +
+        `from ${best[1].balls} balls)`;
     }
 
     let bestBowlerStr = 'None';
 
     if (allBowlers.length > 0) {
-      const bestBowler = allBowlers.reduce(
-        (best, current) => {
-          if (current[1].wickets > best[1].wickets) {
-            return current;
-          }
+      const best = allBowlers.reduce((a, b) => {
+        if (b[1].wickets > a[1].wickets) return b;
 
-          if (
-            current[1].wickets === best[1].wickets &&
-            current[1].runs < best[1].runs
-          ) {
-            return current;
-          }
+        if (
+          b[1].wickets === a[1].wickets &&
+          b[1].runs < a[1].runs
+        ) return b;
 
-          return best;
-        }
-      );
+        return a;
+      });
 
       bestBowlerStr =
-        `${bestBowler[0]} (${bestBowler[1].wickets} wkts ` +
-        `for ${bestBowler[1].runs} runs in ` +
-        `${formatOvers(bestBowler[1].balls)} ov)`;
+        `${best[0]} (${best[1].wickets} wkts ` +
+        `for ${best[1].runs} runs in ` +
+        `${formatOvers(best[1].balls)} ov)`;
     }
 
     doc.setFontSize(18);
@@ -480,48 +527,42 @@ export default function Scoreboard({
     doc.text(`Best Batter: ${bestBatterStr}`, 14, 62);
     doc.text(`Best Bowler: ${bestBowlerStr}`, 14, 68);
 
-    const battingTableData = allBatters.map(
-      ([name, stats]) => [
-        name,
-        stats.isOut
-          ? (
-              stats.outBowler === 'Run Out'
-                ? 'Run Out'
-                : `b ${stats.outBowler}`
-            )
-          : 'not out',
-        stats.runs,
-        stats.balls,
-        stats.fours,
-        stats.sixes,
-        calculateStrikeRate(stats.runs, stats.balls)
-      ]
-    );
+    const battingRows = allBatters.map(([name, stats]) => [
+      name,
+      stats.isOut
+        ? stats.outBowler === 'Run Out'
+          ? 'Run Out'
+          : `b ${stats.outBowler}`
+        : 'not out',
+      stats.runs,
+      stats.balls,
+      stats.fours,
+      stats.sixes,
+      calculateStrikeRate(stats.runs, stats.balls)
+    ]);
 
     autoTable(doc, {
       startY: 75,
       head: [['Batter', 'Status', 'R', 'B', '4s', '6s', 'S/R']],
-      body: battingTableData,
+      body: battingRows,
       theme: 'grid',
       headStyles: {
         fillColor: [15, 23, 42]
       }
     });
 
-    const bowlingTableData = allBowlers.map(
-      ([name, stats]) => [
-        name,
-        formatOvers(stats.balls),
-        stats.runs,
-        stats.wickets,
-        calculateEconomy(stats.runs, stats.balls)
-      ]
-    );
+    const bowlingRows = allBowlers.map(([name, stats]) => [
+      name,
+      formatOvers(stats.balls),
+      stats.runs,
+      stats.wickets,
+      calculateEconomy(stats.runs, stats.balls)
+    ]);
 
     autoTable(doc, {
       startY: doc.lastAutoTable.finalY + 10,
       head: [['Bowler', 'O', 'R', 'W', 'Econ']],
-      body: bowlingTableData,
+      body: bowlingRows,
       theme: 'grid',
       headStyles: {
         fillColor: [220, 38, 38]
@@ -534,7 +575,7 @@ export default function Scoreboard({
 
     buildPDF(
       doc,
-      `Inning Summary: ${battingTeam}`,
+      `Inning Summary: ${currentBattingTeam}`,
       currentInnings,
       runs,
       wickets,
@@ -545,7 +586,7 @@ export default function Scoreboard({
     );
 
     doc.save(
-      `${battingTeam.replace(/\s+/g, '_')}_Inning_${currentInnings}.pdf`
+      `${currentBattingTeam.replace(/\s+/g, '_')}_Inning_${currentInnings}.pdf`
     );
   };
 
@@ -570,7 +611,7 @@ export default function Scoreboard({
   };
 
   // ==========================================
-  // HISTORY & UNDO
+  // UNDO HISTORY
   // ==========================================
 
   const saveHistory = () => {
@@ -593,28 +634,29 @@ export default function Scoreboard({
   };
 
   const handleUndo = () => {
-    if (history.length === 0) {
-      return alert('Nothing to undo!');
+    if (!history.length) {
+      alert('Nothing to undo!');
+      return;
     }
 
-    const lastState = history[history.length - 1];
+    const last = history[history.length - 1];
 
-    setRuns(lastState.runs);
-    setWickets(lastState.wickets);
-    setBalls(lastState.balls);
-    setExtras(lastState.extras);
-    setStriker(lastState.striker);
-    setNonStriker(lastState.nonStriker);
-    setBowler(lastState.bowler);
-    setCurrentOverDetails(lastState.currentOverDetails);
-    setIsOverComplete(lastState.isOverComplete);
-    setBatterStats(lastState.batterStats);
-    setBowlerStats(lastState.bowlerStats);
+    setRuns(last.runs);
+    setWickets(last.wickets);
+    setBalls(last.balls);
+    setExtras(last.extras);
+    setStriker(last.striker);
+    setNonStriker(last.nonStriker);
+    setBowler(last.bowler);
+    setCurrentOverDetails(last.currentOverDetails);
+    setIsOverComplete(last.isOverComplete);
+    setBatterStats(last.batterStats);
+    setBowlerStats(last.bowlerStats);
     setHistory(history.slice(0, -1));
   };
 
   // ==========================================
-  // MATCH CONTROLS
+  // MATCH SETTINGS AND RESET
   // ==========================================
 
   const resetInningsState = () => {
@@ -634,15 +676,63 @@ export default function Scoreboard({
 
   const applySettings = () => {
     const confirmed = window.confirm(
-      `Start Innings ${selectedInnings} with ${selectedTeam} batting? ` +
+      `Start Innings ${selectedInnings} ` +
+      `with ${currentSelectedTeam} batting? ` +
       'This resets current scores.'
     );
 
     if (!confirmed) return;
 
-    setBattingTeam(selectedTeam);
-    setCurrentInnings(selectedInnings);
+    setBattingTeam(currentSelectedTeam);
+    setCurrentInnings(Number(selectedInnings));
     resetInningsState();
+  };
+
+  // Remove only old-team records.
+  const removeOldTeamHistory = () => {
+    const confirmed = window.confirm(
+      'Permanently delete previous Vikings / Shadows innings?\n\n' +
+      'White Panthers and Gladiators innings will be preserved.'
+    );
+
+    if (!confirmed) return;
+
+    setInningsHistory(prev =>
+      prev.filter(item => isCurrentTeam(item?.team))
+    );
+
+    setActiveHistoryTab(0);
+    alert('Previous teams history removed successfully!');
+  };
+
+  // Begin a completely fresh match.
+  const startNewMatch = () => {
+    const confirmed = window.confirm(
+      'Start a fresh White Panthers vs Gladiators match?\n\n' +
+      'This permanently removes ALL saved innings history ' +
+      'and resets the current scores.\n\n' +
+      'Player rosters and maximum bowler overs will remain unchanged.'
+    );
+
+    if (!confirmed) return;
+
+    setInningsHistory([]);
+    setActiveHistoryTab(0);
+
+    setBattingTeam(TEAMS.GEN_Z);
+    setSelectedTeam(TEAMS.GEN_Z);
+    setCurrentInnings(1);
+    setSelectedInnings(1);
+    setNewPlayerTeam(TEAMS.GEN_Z);
+    setRemovePlayerTeam(TEAMS.GEN_Z);
+    setRemovePlayerName('');
+
+    resetInningsState();
+
+    alert(
+      'New White Panthers vs Gladiators match started!\n\n' +
+      'All previous scores and innings history have been cleared.'
+    );
   };
 
   const endInnings = () => {
@@ -653,24 +743,29 @@ export default function Scoreboard({
 
     if (!confirmed) return;
 
-    setInningsHistory(prev => {
-      const newHistory = [
-        ...prev,
-        {
-          team: battingTeam,
-          runs,
-          wickets,
-          overs: formatOvers(balls),
-          innings: currentInnings,
-          extras,
-          batterStats: JSON.parse(JSON.stringify(batterStats)),
-          bowlerStats: JSON.parse(JSON.stringify(bowlerStats))
-        }
-      ];
+    const completedInnings = {
+      team: currentBattingTeam,
+      runs,
+      wickets,
+      overs: formatOvers(balls),
+      innings: currentInnings,
+      extras,
+      batterStats: JSON.parse(JSON.stringify(batterStats)),
+      bowlerStats: JSON.parse(JSON.stringify(bowlerStats))
+    };
 
-      setActiveHistoryTab(newHistory.length - 1);
-      return newHistory;
-    });
+    const updatedHistory = [
+      ...inningsHistory,
+      completedInnings
+    ];
+
+    setInningsHistory(updatedHistory);
+
+    const currentEntries = updatedHistory.filter(
+      item => isCurrentTeam(item?.team)
+    );
+
+    setActiveHistoryTab(currentEntries.length - 1);
 
     if (currentInnings >= 4) {
       alert('Match Over!');
@@ -678,7 +773,7 @@ export default function Scoreboard({
     }
 
     const nextTeam =
-      battingTeam === TEAMS.GEN_Z
+      currentBattingTeam === TEAMS.GEN_Z
         ? TEAMS.OG
         : TEAMS.GEN_Z;
 
@@ -700,18 +795,18 @@ export default function Scoreboard({
     if (!canScoreDelivery()) return;
 
     if (!striker || !bowler) {
-      return alert('Please select a Striker and a Bowler first!');
+      alert('Please select a Striker and a Bowler first!');
+      return;
     }
 
     saveHistory();
-
     setRuns(runs + runsToAdd);
 
     const newDetails = isOverComplete
       ? []
       : [...currentOverDetails];
 
-    newDetails.push(runsToAdd.toString());
+    newDetails.push(String(runsToAdd));
     setCurrentOverDetails(newDetails);
 
     setBatterStats(prev => ({
@@ -766,7 +861,8 @@ export default function Scoreboard({
     if (newBalls >= TEST_MAX_BALLS) {
       setTimeout(() => {
         alert(
-          `${TEST_OVERS} overs completed! Please click 'Declare / End Innings'.`
+          `${TEST_OVERS} overs completed! ` +
+          "Please click 'Declare / End Innings'."
         );
       }, 500);
     }
@@ -776,7 +872,8 @@ export default function Scoreboard({
     if (!canScoreDelivery()) return;
 
     if (!bowler) {
-      return alert('Please select a Bowler first!');
+      alert('Please select a Bowler first!');
+      return;
     }
 
     saveHistory();
@@ -815,7 +912,8 @@ export default function Scoreboard({
     if (!canScoreDelivery()) return;
 
     if (!striker || !bowler) {
-      return alert('Please select a Striker and a Bowler first!');
+      alert('Please select a Striker and a Bowler first!');
+      return;
     }
 
     saveHistory();
@@ -875,9 +973,10 @@ export default function Scoreboard({
     if (!canScoreDelivery()) return;
 
     if (!striker || !bowler || !nonStriker) {
-      return alert(
+      alert(
         'Please select Striker, Non-Striker, and Bowler first!'
       );
+      return;
     }
 
     const isStrikerOut = window.confirm(
@@ -887,7 +986,6 @@ export default function Scoreboard({
     );
 
     saveHistory();
-
     setRuns(runs + completedRuns);
 
     const newDetails = isOverComplete
@@ -897,7 +995,7 @@ export default function Scoreboard({
     newDetails.push(`W+${completedRuns}`);
     setCurrentOverDetails(newDetails);
 
-    if (wickets < 12) {
+    if (wickets < MAX_WICKETS) {
       setWickets(wickets + 1);
 
       setBatterStats(prev => {
@@ -961,24 +1059,24 @@ export default function Scoreboard({
           setNonStriker(striker);
           setStriker('');
         }
+      } else if (isStrikerOut) {
+        setStriker('');
       } else {
-        if (isStrikerOut) {
-          setStriker('');
-        } else {
-          setNonStriker('');
-        }
+        setNonStriker('');
       }
 
-      if (wickets + 1 === 12) {
+      if (wickets + 1 === MAX_WICKETS) {
         setTimeout(() => {
           alert(
-            "All Out (12 Wickets)! Please click 'Declare / End Innings'."
+            `All Out (${MAX_WICKETS} Wickets)! ` +
+            "Please click 'Declare / End Innings'."
           );
         }, 500);
       } else if (newBalls >= TEST_MAX_BALLS) {
         setTimeout(() => {
           alert(
-            `${TEST_OVERS} overs completed! Please click 'Declare / End Innings'.`
+            `${TEST_OVERS} overs completed! ` +
+            "Please click 'Declare / End Innings'."
           );
         }, 500);
       }
@@ -989,7 +1087,8 @@ export default function Scoreboard({
     if (!canScoreDelivery()) return;
 
     if (!striker || !bowler) {
-      return alert('Please select a Striker and a Bowler first!');
+      alert('Please select a Striker and a Bowler first!');
+      return;
     }
 
     saveHistory();
@@ -1001,7 +1100,7 @@ export default function Scoreboard({
     newDetails.push('W');
     setCurrentOverDetails(newDetails);
 
-    if (wickets < 12) {
+    if (wickets < MAX_WICKETS) {
       setWickets(wickets + 1);
 
       setBatterStats(prev => ({
@@ -1045,16 +1144,18 @@ export default function Scoreboard({
         setStriker('');
       }
 
-      if (wickets + 1 === 12) {
+      if (wickets + 1 === MAX_WICKETS) {
         setTimeout(() => {
           alert(
-            "All Out (12 Wickets)! Please click 'Declare / End Innings'."
+            `All Out (${MAX_WICKETS} Wickets)! ` +
+            "Please click 'Declare / End Innings'."
           );
         }, 500);
       } else if (newBalls >= TEST_MAX_BALLS) {
         setTimeout(() => {
           alert(
-            `${TEST_OVERS} overs completed! Please click 'Declare / End Innings'.`
+            `${TEST_OVERS} overs completed! ` +
+            "Please click 'Declare / End Innings'."
           );
         }, 500);
       }
@@ -1082,7 +1183,7 @@ export default function Scoreboard({
   };
 
   // ==========================================
-  // CURRENT SCORECARD DATA
+  // SCORECARD DATA
   // ==========================================
 
   const sStats = batterStats[striker] || {
@@ -1099,10 +1200,9 @@ export default function Scoreboard({
 
   const allBatters = Object.entries(batterStats);
   const allBowlers = Object.entries(bowlerStats);
-  const historyData = inningsHistory[activeHistoryTab];
 
   // ==========================================
-  // SCOREBOARD INTERFACE
+  // INTERFACE
   // ==========================================
 
   return (
@@ -1121,17 +1221,23 @@ export default function Scoreboard({
 
               <div className="input-group">
                 <select
-                  value={selectedTeam}
+                  value={currentSelectedTeam}
                   onChange={e => setSelectedTeam(e.target.value)}
                   className="input-field"
                 >
-                  <option value={TEAMS.GEN_Z}>{TEAMS.GEN_Z}</option>
-                  <option value={TEAMS.OG}>{TEAMS.OG}</option>
+                  <option value={TEAMS.GEN_Z}>
+                    {TEAMS.GEN_Z}
+                  </option>
+                  <option value={TEAMS.OG}>
+                    {TEAMS.OG}
+                  </option>
                 </select>
 
                 <select
                   value={selectedInnings}
-                  onChange={e => setSelectedInnings(Number(e.target.value))}
+                  onChange={e =>
+                    setSelectedInnings(Number(e.target.value))
+                  }
                   className="input-field"
                 >
                   {[1, 2, 3, 4].map(num => (
@@ -1142,23 +1248,27 @@ export default function Scoreboard({
                 </select>
               </div>
 
-              {/* MAXIMUM BOWLER OVERS */}
-              <label className="input-label" htmlFor="maxBowlerOvers">
+              <label
+                className="input-label"
+                htmlFor="maxBowlerOvers"
+              >
                 Maximum overs per bowler:
               </label>
 
               <select
                 id="maxBowlerOvers"
                 value={maxBowlerOvers}
-                onChange={e => setMaxBowlerOvers(Number(e.target.value))}
+                onChange={e =>
+                  setMaxBowlerOvers(Number(e.target.value))
+                }
                 className="input-field"
               >
                 {Array.from(
                   { length: TEST_OVERS },
                   (_, i) => i + 1
-                ).map(overs => (
-                  <option key={overs} value={overs}>
-                    {overs} {overs === 1 ? 'over' : 'overs'}
+                ).map(value => (
+                  <option key={value} value={value}>
+                    {value} {value === 1 ? 'over' : 'overs'}
                   </option>
                 ))}
               </select>
@@ -1168,6 +1278,15 @@ export default function Scoreboard({
                 className="btn btn-blue"
               >
                 Apply & Start
+              </button>
+
+              <button
+                type="button"
+                onClick={startNewMatch}
+                className="btn btn-red"
+                style={{ marginTop: '10px' }}
+              >
+                Start Fresh White Panthers vs Gladiators Match
               </button>
 
               <button
@@ -1188,18 +1307,26 @@ export default function Scoreboard({
               <div className="input-group-col">
                 <select
                   value={newPlayerTeam}
-                  onChange={e => setNewPlayerTeam(e.target.value)}
+                  onChange={e =>
+                    setNewPlayerTeam(e.target.value)
+                  }
                   className="input-field no-margin"
                 >
-                  <option value={TEAMS.GEN_Z}>{TEAMS.GEN_Z}</option>
-                  <option value={TEAMS.OG}>{TEAMS.OG}</option>
+                  <option value={TEAMS.GEN_Z}>
+                    {TEAMS.GEN_Z}
+                  </option>
+                  <option value={TEAMS.OG}>
+                    {TEAMS.OG}
+                  </option>
                 </select>
 
                 <input
                   type="text"
                   placeholder="Player Name"
                   value={newPlayerName}
-                  onChange={e => setNewPlayerName(e.target.value)}
+                  onChange={e =>
+                    setNewPlayerName(e.target.value)
+                  }
                   className="input-field no-margin"
                 />
 
@@ -1227,7 +1354,9 @@ export default function Scoreboard({
 
                     <select
                       value={striker}
-                      onChange={e => setStriker(e.target.value)}
+                      onChange={e =>
+                        setStriker(e.target.value)
+                      }
                       className="input-field"
                     >
                       <option value="">
@@ -1256,7 +1385,9 @@ export default function Scoreboard({
 
                     <select
                       value={nonStriker}
-                      onChange={e => setNonStriker(e.target.value)}
+                      onChange={e =>
+                        setNonStriker(e.target.value)
+                      }
                       className="input-field"
                     >
                       <option value="">
@@ -1285,7 +1416,9 @@ export default function Scoreboard({
 
                     <select
                       value={bowler}
-                      onChange={e => setBowler(e.target.value)}
+                      onChange={e =>
+                        setBowler(e.target.value)
+                      }
                       className="input-field bowler"
                     >
                       <option value="">
@@ -1293,8 +1426,9 @@ export default function Scoreboard({
                       </option>
 
                       {bowlingRoster.map(p => {
-                        const used =
-                          Number(bowlerStats[p.name]?.balls || 0);
+                        const used = Number(
+                          bowlerStats[p.name]?.balls || 0
+                        );
 
                         const maxReached = !canUseBowler(p.name);
 
@@ -1342,8 +1476,12 @@ export default function Scoreboard({
                       }}
                       className="input-field no-margin"
                     >
-                      <option value={TEAMS.GEN_Z}>{TEAMS.GEN_Z}</option>
-                      <option value={TEAMS.OG}>{TEAMS.OG}</option>
+                      <option value={TEAMS.GEN_Z}>
+                        {TEAMS.GEN_Z}
+                      </option>
+                      <option value={TEAMS.OG}>
+                        {TEAMS.OG}
+                      </option>
                     </select>
                   </div>
 
@@ -1354,7 +1492,9 @@ export default function Scoreboard({
 
                     <select
                       value={removePlayerName}
-                      onChange={e => setRemovePlayerName(e.target.value)}
+                      onChange={e =>
+                        setRemovePlayerName(e.target.value)
+                      }
                       className="input-field no-margin"
                     >
                       <option value="">
@@ -1365,7 +1505,10 @@ export default function Scoreboard({
                         ? liveGenZRoster
                         : liveOgRoster
                       ).map(p => (
-                        <option key={p.name} value={p.name}>
+                        <option
+                          key={p.name}
+                          value={p.name}
+                        >
                           {p.name}
                         </option>
                       ))}
@@ -1386,7 +1529,7 @@ export default function Scoreboard({
           </div>
         </div>
 
-        {/* LIVE SCOREBOARD AND SCORE CONTROLS */}
+        {/* LIVE SCOREBOARD */}
         <div className="row-flex">
           <div className="digital-board">
             <div className="digital-innings">
@@ -1394,7 +1537,7 @@ export default function Scoreboard({
             </div>
 
             <h2 className="digital-title">
-              {battingTeam} Batting
+              {currentBattingTeam} Batting
             </h2>
 
             <div className="digital-score">
@@ -1418,9 +1561,9 @@ export default function Scoreboard({
               <div className="player-box batters">
                 <div className="live-batter-row">
                   <div className="live-player-info">
-                    <img
+                    <PlayerImage
+                      name={striker}
                       src={getAvatarUrl(striker)}
-                      alt="Striker"
                       className="avatar striker"
                     />
 
@@ -1442,9 +1585,9 @@ export default function Scoreboard({
 
                 <div className="live-batter-ns">
                   <div className="live-player-info">
-                    <img
+                    <PlayerImage
+                      name={nonStriker}
                       src={getAvatarUrl(nonStriker)}
-                      alt="Non-Striker"
                       className="avatar non-striker"
                     />
 
@@ -1470,9 +1613,10 @@ export default function Scoreboard({
                     {bowler || 'Not Selected'}
                   </div>
 
-                  <img
+                  <PlayerImage
+                    name={bowler}
                     src={getAvatarUrl(bowler, true)}
-                    alt="Bowler"
+                    isBowler
                     className="avatar bowler"
                   />
                 </div>
@@ -1496,7 +1640,9 @@ export default function Scoreboard({
 
               <div className="this-over-balls">
                 {currentOverDetails.length === 0 ? (
-                  <span className="this-over-empty">...</span>
+                  <span className="this-over-empty">
+                    ...
+                  </span>
                 ) : (
                   currentOverDetails.map((event, index) => (
                     <span
@@ -1519,7 +1665,7 @@ export default function Scoreboard({
             </div>
           </div>
 
-          {/* SCORE KEYPAD */}
+          {/* SCORE CONTROLS */}
           <div className="card margin-0 col-500">
             <div className="update-header">
               <h3>🎯 Update Score</h3>
@@ -1542,10 +1688,10 @@ export default function Scoreboard({
                       value === 0
                         ? 'btn-0'
                         : value === 4
-                        ? 'btn-4'
-                        : value === 6
-                        ? 'btn-6'
-                        : ''
+                          ? 'btn-4'
+                          : value === 6
+                            ? 'btn-6'
+                            : ''
                     }`
                   }
                 >
@@ -1563,7 +1709,9 @@ export default function Scoreboard({
 
             <hr className="divider" />
 
-            <h4 className="sub-heading">Wides</h4>
+            <h4 className="sub-heading">
+              Wides
+            </h4>
 
             <div className="grid-extras">
               {[0, 1, 2, 3, 4].map(value => (
@@ -1572,7 +1720,9 @@ export default function Scoreboard({
                   onClick={() => addWide(value)}
                   className="btn-extra"
                 >
-                  {value === 0 ? 'Wide' : `Wide + ${value}`}
+                  {value === 0
+                    ? 'Wide'
+                    : `Wide + ${value}`}
                 </button>
               ))}
             </div>
@@ -1588,7 +1738,9 @@ export default function Scoreboard({
                   onClick={() => addNoBall(value)}
                   className="btn-extra"
                 >
-                  {value === 0 ? 'NB' : `NB + ${value}`}
+                  {value === 0
+                    ? 'NB'
+                    : `NB + ${value}`}
                 </button>
               ))}
             </div>
@@ -1606,7 +1758,9 @@ export default function Scoreboard({
                   onClick={() => addRunOut(value)}
                   className="btn-ro"
                 >
-                  {value === 0 ? 'Run Out' : `RO + ${value}`}
+                  {value === 0
+                    ? 'Run Out'
+                    : `RO + ${value}`}
                 </button>
               ))}
             </div>
@@ -1656,10 +1810,9 @@ export default function Scoreboard({
                       <tr key={name}>
                         <td>
                           <div className="table-player-cell">
-                            <img
+                            <PlayerImage
+                              name={name}
                               src={getAvatarUrl(name)}
-                              alt={name}
-                              className="avatar"
                             />
 
                             <div className="table-player-info">
@@ -1694,11 +1847,18 @@ export default function Scoreboard({
                           </div>
                         </td>
 
-                        <td className="right bold">{stats.runs}</td>
-                        <td className="right">{stats.balls}</td>
-                        <td className="right">{stats.fours}</td>
-                        <td className="right">{stats.sixes}</td>
-
+                        <td className="right bold">
+                          {stats.runs}
+                        </td>
+                        <td className="right">
+                          {stats.balls}
+                        </td>
+                        <td className="right">
+                          {stats.fours}
+                        </td>
+                        <td className="right">
+                          {stats.sixes}
+                        </td>
                         <td className="right muted">
                           {calculateStrikeRate(
                             stats.runs,
@@ -1741,10 +1901,10 @@ export default function Scoreboard({
                       <tr key={name}>
                         <td>
                           <div className="table-player-cell">
-                            <img
+                            <PlayerImage
+                              name={name}
                               src={getAvatarUrl(name, true)}
-                              alt={name}
-                              className="avatar"
+                              isBowler
                             />
 
                             <div className="table-player-name">
@@ -1756,7 +1916,9 @@ export default function Scoreboard({
                         <td className="right">
                           {formatOvers(stats.balls)}
                         </td>
-                        <td className="right">{stats.runs}</td>
+                        <td className="right">
+                          {stats.runs}
+                        </td>
                         <td className="right danger">
                           {stats.wickets}
                         </td>
@@ -1792,217 +1954,279 @@ export default function Scoreboard({
           </button>
         </div>
 
-        {/* PREVIOUS INNINGS */}
-        {inningsHistory.length > 0 && (
-          <div className="card no-padding mt-20">
-            <div className="history-tabs-container">
-              {inningsHistory.map((inn, index) => (
-                <div
-                  key={index}
-                  onClick={() => setActiveHistoryTab(index)}
-                  className={
-                    `history-tab ${
-                      activeHistoryTab === index ? 'active' : ''
-                    }`
-                  }
-                >
-                  <div className="history-tab-title">
-                    {inn.team}
-                  </div>
+        {/* =====================================
+            UPDATED MATCH HISTORY
+           ===================================== */}
 
-                  <div className="history-tab-subtitle">
-                    Innings {inn.innings}
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="card no-padding mt-20">
+          <div style={{ padding: '18px 24px' }}>
+            <h3 className="card-title">
+              🏏 Match History — White Panthers vs Gladiators
+            </h3>
 
-            {historyData && (
-              <div className="history-content">
-                <div className="history-banner">
-                  <div className="flex-row align-center gap-15">
-                    <h3 className="history-team-title">
-                      {historyData.team} Innings
-                    </h3>
-
-                    <button
-                      onClick={() => generatePastInningPDF(historyData)}
-                      className="btn-download-small"
-                    >
-                      📥 Download PDF
-                    </button>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="history-score-large">
-                      {historyData.runs}
-                      {' '}
-                      <span className="history-wickets-large">
-                        / {historyData.wickets}
-                      </span>
-                    </div>
-
-                    <div className="history-overs">
-                      Overs: {historyData.overs}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="row-flex">
-                  {/* PAST BATTING */}
-                  <div className="col-500">
-                    <h3 className="card-title">
-                      🏏 Batting
-                    </h3>
-
-                    <div className="table-responsive">
-                      <table className="score-table">
-                        <thead>
-                          <tr>
-                            <th>Batters</th>
-                            <th className="right">R</th>
-                            <th className="right">B</th>
-                            <th className="right">4s</th>
-                            <th className="right">6s</th>
-                            <th className="right">S/R</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {Object.entries(
-                            historyData.batterStats
-                          ).map(([name, stats]) => (
-                            <tr key={name}>
-                              <td>
-                                <div className="table-player-cell">
-                                  <img
-                                    src={getAvatarUrl(name)}
-                                    alt={name}
-                                    className="avatar"
-                                  />
-
-                                  <div className="table-player-info">
-                                    <div className="table-player-name">
-                                      {name}
-                                      {' '}
-                                      {stats.runs >= 100 && (
-                                        <span className="century-indicator">
-                                          💯
-                                        </span>
-                                      )}
-                                    </div>
-
-                                    <div className="dismissal-info">
-                                      {stats.isOut
-                                        ? stats.outBowler === 'Run Out'
-                                          ? 'Run Out'
-                                          : `b ${stats.outBowler}`
-                                        : (
-                                          <span className="not-out-text">
-                                            not out
-                                          </span>
-                                        )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td className="right bold">
-                                {stats.runs}
-                              </td>
-                              <td className="right">
-                                {stats.balls}
-                              </td>
-                              <td className="right">
-                                {stats.fours}
-                              </td>
-                              <td className="right">
-                                {stats.sixes}
-                              </td>
-                              <td className="right muted">
-                                {calculateStrikeRate(
-                                  stats.runs,
-                                  stats.balls
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="history-extras-box">
-                      Extras:
-                      {' '}
-                      <span className="history-extras-val">
-                        {historyData.extras}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* PAST BOWLING */}
-                  <div className="col-500">
-                    <h3 className="card-title">
-                      🥎 Bowling
-                    </h3>
-
-                    <div className="table-responsive">
-                      <table className="score-table">
-                        <thead>
-                          <tr>
-                            <th>Bowlers</th>
-                            <th className="right">O</th>
-                            <th className="right">R</th>
-                            <th className="right">W</th>
-                            <th className="right">Econ</th>
-                          </tr>
-                        </thead>
-
-                        <tbody>
-                          {Object.entries(
-                            historyData.bowlerStats
-                          ).map(([name, stats]) => (
-                            <tr key={name}>
-                              <td>
-                                <div className="table-player-cell">
-                                  <img
-                                    src={getAvatarUrl(name, true)}
-                                    alt={name}
-                                    className="avatar"
-                                  />
-
-                                  <div className="table-player-name">
-                                    {name}
-                                  </div>
-                                </div>
-                              </td>
-
-                              <td className="right">
-                                {formatOvers(stats.balls)}
-                              </td>
-                              <td className="right">
-                                {stats.runs}
-                              </td>
-                              <td className="right danger">
-                                {stats.wickets}
-                              </td>
-                              <td className="right muted">
-                                {calculateEconomy(
-                                  stats.runs,
-                                  stats.balls
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {hasOldTeamHistory && (
+              <button
+                type="button"
+                onClick={removeOldTeamHistory}
+                className="btn btn-red"
+              >
+                Delete Old Vikings / Shadows History
+              </button>
             )}
           </div>
-        )}
+
+          {currentTeamHistory.length === 0 ? (
+            <div
+              className="history-content"
+              style={{ padding: '24px' }}
+            >
+              <div className="row-flex">
+                <div className="col-500">
+                  <h3 className="history-team-title">
+                    White Panthers
+                  </h3>
+                  <p>No completed innings yet.</p>
+                </div>
+
+                <div className="col-500">
+                  <h3 className="history-team-title">
+                    Gladiators
+                  </h3>
+                  <p>No completed innings yet.</p>
+                </div>
+              </div>
+
+              <p className="empty-table-text">
+                Complete an innings to display its batting,
+                bowling, and match summary here.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* HISTORY TABS */}
+              <div className="history-tabs-container">
+                {currentTeamHistory.map((inn, index) => (
+                  <div
+                    key={index}
+                    onClick={() => setActiveHistoryTab(index)}
+                    className={
+                      `history-tab ${
+                        safeHistoryIndex === index
+                          ? 'active'
+                          : ''
+                      }`
+                    }
+                  >
+                    <div className="history-tab-title">
+                      {inn.team}
+                    </div>
+
+                    <div className="history-tab-subtitle">
+                      Innings {inn.innings}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* SELECTED INNINGS */}
+              {historyData && (
+                <div className="history-content">
+                  <div className="history-banner">
+                    <div className="flex-row align-center gap-15">
+                      <h3 className="history-team-title">
+                        {historyData.team} Innings
+                      </h3>
+
+                      <button
+                        onClick={() =>
+                          generatePastInningPDF(historyData)
+                        }
+                        className="btn-download-small"
+                      >
+                        📥 Download PDF
+                      </button>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="history-score-large">
+                        {historyData.runs}
+                        {' '}
+                        <span className="history-wickets-large">
+                          / {historyData.wickets}
+                        </span>
+                      </div>
+
+                      <div className="history-overs">
+                        Overs: {historyData.overs}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="row-flex">
+                    {/* PAST BATTING */}
+                    <div className="col-500">
+                      <h3 className="card-title">
+                        🏏 Batting
+                      </h3>
+
+                      <div className="table-responsive">
+                        <table className="score-table">
+                          <thead>
+                            <tr>
+                              <th>Batters</th>
+                              <th className="right">R</th>
+                              <th className="right">B</th>
+                              <th className="right">4s</th>
+                              <th className="right">6s</th>
+                              <th className="right">S/R</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {Object.entries(
+                              historyData.batterStats || {}
+                            ).map(([name, stats]) => (
+                              <tr key={name}>
+                                <td>
+                                  <div className="table-player-cell">
+                                    <PlayerImage
+                                      name={name}
+                                      src={getAvatarUrl(
+                                        name,
+                                        false,
+                                        historyData.team
+                                      )}
+                                    />
+
+                                    <div className="table-player-info">
+                                      <div className="table-player-name">
+                                        {name}
+                                        {' '}
+                                        {stats.runs >= 100 && (
+                                          <span className="century-indicator">
+                                            💯
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <div className="dismissal-info">
+                                        {stats.isOut
+                                          ? stats.outBowler === 'Run Out'
+                                            ? 'Run Out'
+                                            : `b ${stats.outBowler}`
+                                          : (
+                                            <span className="not-out-text">
+                                              not out
+                                            </span>
+                                          )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="right bold">
+                                  {stats.runs}
+                                </td>
+                                <td className="right">
+                                  {stats.balls}
+                                </td>
+                                <td className="right">
+                                  {stats.fours}
+                                </td>
+                                <td className="right">
+                                  {stats.sixes}
+                                </td>
+                                <td className="right muted">
+                                  {calculateStrikeRate(
+                                    stats.runs,
+                                    stats.balls
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="history-extras-box">
+                        Extras:
+                        {' '}
+                        <span className="history-extras-val">
+                          {historyData.extras}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* PAST BOWLING */}
+                    <div className="col-500">
+                      <h3 className="card-title">
+                        🥎 Bowling
+                      </h3>
+
+                      <div className="table-responsive">
+                        <table className="score-table">
+                          <thead>
+                            <tr>
+                              <th>Bowlers</th>
+                              <th className="right">O</th>
+                              <th className="right">R</th>
+                              <th className="right">W</th>
+                              <th className="right">Econ</th>
+                            </tr>
+                          </thead>
+
+                          <tbody>
+                            {Object.entries(
+                              historyData.bowlerStats || {}
+                            ).map(([name, stats]) => (
+                              <tr key={name}>
+                                <td>
+                                  <div className="table-player-cell">
+                                    <PlayerImage
+                                      name={name}
+                                      isBowler
+                                      src={getAvatarUrl(
+                                        name,
+                                        true,
+                                        historyData.team === TEAMS.GEN_Z
+                                          ? TEAMS.OG
+                                          : TEAMS.GEN_Z
+                                      )}
+                                    />
+
+                                    <div className="table-player-name">
+                                      {name}
+                                    </div>
+                                  </div>
+                                </td>
+
+                                <td className="right">
+                                  {formatOvers(stats.balls)}
+                                </td>
+                                <td className="right">
+                                  {stats.runs}
+                                </td>
+                                <td className="right danger">
+                                  {stats.wickets}
+                                </td>
+                                <td className="right muted">
+                                  {calculateEconomy(
+                                    stats.runs,
+                                    stats.balls
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

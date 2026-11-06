@@ -18,7 +18,7 @@
 // ];
 
 export const GENZ_PLAYERS = [
-  { id: 1, name: 'Shashika', image: '/images/Shashika.png' },
+  { id: 1, name: 'Shashika', image: '/images/shashika.png' },
   { id: 2, name: 'Supun', image: '/images/Supun.png' },
   { id: 3, name: 'Thineth', image: '/images/Thineth.png' },
   { id: 4, name: 'Damiyuth', image: '/images/damiyuth.png' },

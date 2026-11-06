@@ -29,10 +29,10 @@ export const OG_PLAYERS = [
   { id: 7, name: 'Prasad', image: '/images/images.jpeg' },
   { id: 8, name: 'Prabash', image: '/images/images.jpeg' },
   { id: 9, name: 'Ratheesha', image: '/images/ratheesha.png' },
-  { id: 10, name: 'Supun', image: '/images/Buddika.png' },
+  { id: 10, name: 'Buddika', image: '/images/Buddika.png' },
   { id: 11, name: 'Induma', image: '/images/images.jpeg' },
   { id: 12, name: 'Viraj', image: '/images/viraj.png' },
   { id: 13, name: 'Pasindu', image: '/images/images.jpeg' }, 
-  { id: 14, name: 'Shakthi', image: '/images/Shakthi.png' },
+  { id: 14, name: 'Shakthi', image: '/images/shakthi.png' },
   { id: 15, name: 'Gayan2', image: '/images/images.jpeg' }
 ];

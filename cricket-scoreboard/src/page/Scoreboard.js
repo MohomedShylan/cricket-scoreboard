@@ -6,14 +6,17 @@ import autoTable from 'jspdf-autotable';
 import './Scoreboard.css';
 
 const TEAMS = {
-  GEN_Z: 'Ambanpola Vikings',
-  OG: 'Ambanpola Shadows',
+  GEN_Z: 'White Panthers',
+  OG: 'Gladiators',
+
+  //  GEN_Z: 'Ambanpola Vikings',
+  // OG: 'Ambanpola Shadows',
 };
 
 // Custom Test match rules
-const TEST_OVERS = 30;
-const TEST_MAX_BALLS = TEST_OVERS * 6;
-const MAX_SIX_OVER_BOWLERS = 3;
+const TEST_OVERS = 35;
+const TEST_MAX_BALLS = TEST_OVERS * 7;
+// const MAX_SIX_OVER_BOWLERS = 3;
 const SIX_OVER_LIMIT = 36;
 const OTHER_BOWLER_LIMIT = 30;
 

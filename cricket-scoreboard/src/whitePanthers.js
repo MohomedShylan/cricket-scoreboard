@@ -13,5 +13,6 @@ export const GENZ_PLAYERS = [
   { id: 10, name: 'Sanjana', image: '/images/Sanjana.png' },
   { id: 11, name: 'Naveen', image: '/images/Naveen.png' },
   { id: 12, name: 'Arosha', image: '/images/Arosha.png' },
-  { id: 13, name: 'Eranada', image: '/images/Eranada.png' }
+  { id: 13, name: 'Nimna', image: '/images/Nimna.png' }, 
+  { id: 14, name: 'Eranada', image: '/images/Eranada.png' }
 ];

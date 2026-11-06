@@ -17,9 +17,6 @@
 //   { id: 13, name: 'Nuwan', image: '' }
 // ];
 
-
-
-
 export const GENZ_PLAYERS = [
   { id: 1, name: 'Shashika', image: '/images/Shashika.png' },
   { id: 2, name: 'Supun', image: '/images/Supun.png' },

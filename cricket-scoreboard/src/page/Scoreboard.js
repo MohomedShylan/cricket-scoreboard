@@ -169,11 +169,11 @@ export default function Scoreboard({
     )
     .map(([name]) => name);
 
-  const bowlerBallLimit = name =>
-    sixOverBowlers.includes(name) ||
-    sixOverBowlers.length < MAX_SIX_OVER_BOWLERS
-      ? SIX_OVER_LIMIT
-      : OTHER_BOWLER_LIMIT;
+  // const bowlerBallLimit = name =>
+  //   sixOverBowlers.includes(name) ||
+  //   sixOverBowlers.length < MAX_SIX_OVER_BOWLERS
+  //     ? SIX_OVER_LIMIT
+  //     : OTHER_BOWLER_LIMIT;
 
   const canUseBowler = name =>
     Boolean(name) &&
